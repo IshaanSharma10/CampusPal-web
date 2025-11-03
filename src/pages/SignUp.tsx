@@ -3,11 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { useState } from "react";
 
-export default function Login() {
+export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   return (
     <div className="flex min-h-screen w-full">
@@ -21,8 +22,11 @@ export default function Login() {
             <span className="text-2xl font-bold">CampusPal</span>
           </div>
           <h1 className="text-4xl font-bold mb-4 leading-tight">
-            Your Campus,<br />Connected.
+            Join Your Campus<br />Community.
           </h1>
+          <p className="text-lg text-white/80">
+            Connect with students, join clubs, and stay updated with campus events.
+          </p>
         </div>
       </div>
 
@@ -38,11 +42,12 @@ export default function Login() {
           </div>
 
           <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold mb-2">Welcome Back!</h2>
+            <h2 className="text-3xl font-bold mb-2">Create Account</h2>
+            <p className="text-muted-foreground">Join the campus community today</p>
           </div>
 
           <div className="space-y-6">
-            {/* Google Sign In */}
+            {/* Google Sign Up */}
             <Button variant="outline" className="w-full gap-2 h-11" size="lg">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -74,8 +79,21 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Email Form */}
+            {/* Sign Up Form */}
             <form className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullname">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="fullname"
+                    type="text"
+                    placeholder="Enter your full name"
+                    className="pl-10 h-11"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
@@ -96,7 +114,7 @@ export default function Login() {
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Create a password"
                     className="pl-10 pr-10 h-11"
                   />
                   <button
@@ -109,27 +127,49 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
-                  <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
-                    Remember Me
-                  </Label>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    className="pl-10 pr-10 h-11"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                  Forgot Password?
-                </Link>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox id="terms" />
+                <Label htmlFor="terms" className="text-sm font-normal cursor-pointer">
+                  I agree to the{" "}
+                  <Link to="/terms" className="text-primary hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" className="text-primary hover:underline">
+                    Privacy Policy
+                  </Link>
+                </Label>
               </div>
 
               <Button className="w-full h-11" size="lg">
-                Log In
+                Create Account
               </Button>
             </form>
 
             <p className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Sign Up
+              Already have an account?{" "}
+              <Link to="/login" className="text-primary hover:underline font-medium">
+                Log In
               </Link>
             </p>
           </div>
