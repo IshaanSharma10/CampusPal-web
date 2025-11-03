@@ -46,71 +46,76 @@ export default function Profile() {
         <Header />
         
         <main className="animate-slide-up pb-20 lg:pb-0">
-          {/* Cover & Profile */}
-          <div className="relative">
-            <div className="h-32 sm:h-48 gradient-hero" />
-            <div className="container max-w-5xl mx-auto px-4 sm:px-6">
-              <div className="relative -mt-16 sm:-mt-20 mb-6">
-                <div className="flex flex-col md:flex-row gap-4 sm:gap-6 items-start">
-                  <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-background shadow-medium">
-                    <AvatarImage src="/placeholder.svg" alt="Alex Doe" />
-                    <AvatarFallback className="text-2xl sm:text-3xl">AD</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0 w-full">
-                    <div className="bg-card rounded-lg p-4 sm:p-6 shadow-soft">
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-4">
-                        <div>
-                          <h1 className="text-xl sm:text-2xl font-bold mb-1">Alex Doe</h1>
-                          <p className="text-sm text-muted-foreground">Computer Science Major</p>
-                        </div>
-                        <Button className="w-full sm:w-auto">Edit Profile</Button>
+          <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+              {/* Left Sidebar - Profile Info */}
+              <div className="space-y-6">
+                <Card className="p-6 shadow-soft">
+                  <div className="flex flex-col items-center text-center mb-6">
+                    <Avatar className="h-32 w-32 mb-4 border-4 border-primary/20">
+                      <AvatarImage src="/placeholder.svg" alt="Alex Chen" />
+                      <AvatarFallback className="text-3xl">AC</AvatarFallback>
+                    </Avatar>
+                    <h1 className="text-2xl font-bold mb-1">Alex Chen</h1>
+                    <p className="text-sm text-primary">@alexchen</p>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">BIO</h3>
+                      <p className="text-sm leading-relaxed">
+                        Aspiring software engineer and coffee enthusiast. Exploring the intersection of technology and design. Go Bears!
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center gap-3">
+                      <MapPin className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Computer Science</p>
                       </div>
-                      <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          <span>Campus University</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>Joined September 2022</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <LinkIcon className="h-4 w-4" />
-                          <a href="#" className="text-primary hover:underline">portfolio.com</a>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          <span>alex.doe@campus.edu</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-6 mt-4 pt-4 border-t border-border">
-                        <div>
-                          <div className="text-xl font-bold">245</div>
-                          <div className="text-xs text-muted-foreground">Posts</div>
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold">892</div>
-                          <div className="text-xs text-muted-foreground">Friends</div>
-                        </div>
-                        <div>
-                          <div className="text-xl font-bold">12</div>
-                          <div className="text-xs text-muted-foreground">Clubs</div>
-                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium">Junior</p>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Content */}
-          <div className="container max-w-5xl mx-auto px-4 sm:px-6 pb-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+                  <Button className="w-full mt-6">Edit Profile</Button>
+                </Card>
+
+                {/* Clubs Section */}
+                <Card className="p-6 shadow-soft">
+                  <h3 className="font-bold text-sm mb-4 uppercase text-muted-foreground">My Communities</h3>
+                  <div className="space-y-3">
+                    {[
+                      { name: "Computer Science Dept.", icon: "💻" },
+                      { name: "Chess Club", icon: "♟️" },
+                      { name: "Hiking Group", icon: "🥾" }
+                    ].map((club) => (
+                      <div key={club.name} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-smooth cursor-pointer">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg">
+                          {club.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="text-sm font-semibold truncate">{club.name}</h5>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+
+              {/* Right Content - Posts & Friends */}
+              <div className="space-y-6">
                 <Tabs defaultValue="posts" className="w-full">
-                  <TabsList className="w-full">
+                  <TabsList className="w-full bg-card">
                     <TabsTrigger value="posts" className="flex-1">My Posts</TabsTrigger>
                     <TabsTrigger value="friends" className="flex-1">Friends</TabsTrigger>
                   </TabsList>
@@ -121,11 +126,11 @@ export default function Profile() {
                         <div className="p-4">
                           <div className="flex items-start gap-3 mb-3">
                             <Avatar>
-                              <AvatarImage src="/placeholder.svg" alt="Alex Doe" />
-                              <AvatarFallback>AD</AvatarFallback>
+                              <AvatarImage src="/placeholder.svg" alt="Alex Chen" />
+                              <AvatarFallback>AC</AvatarFallback>
                             </Avatar>
                             <div className="flex-1">
-                              <h4 className="font-semibold text-sm">Alex Doe</h4>
+                              <h4 className="font-semibold text-sm">Alex Chen</h4>
                               <p className="text-xs text-muted-foreground">{post.time}</p>
                             </div>
                           </div>
@@ -158,7 +163,7 @@ export default function Profile() {
                   </TabsContent>
 
                   <TabsContent value="friends" className="mt-6">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {friends.map((friend) => (
                         <Card key={friend.name} className="p-4 hover:shadow-medium transition-smooth">
                           <div className="flex items-center gap-3">
@@ -178,43 +183,6 @@ export default function Profile() {
                     </div>
                   </TabsContent>
                 </Tabs>
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-4 sm:space-y-6">
-                <Card className="p-4 shadow-soft">
-                  <h3 className="font-bold text-sm mb-4">About</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Computer Science student passionate about web development and AI. 
-                    Love building things that make a difference!
-                  </p>
-                </Card>
-
-                <Card className="p-4 shadow-soft">
-                  <h3 className="font-bold text-sm mb-4">Clubs & Organizations</h3>
-                  <div className="space-y-3">
-                    {["Computer Science Club", "Hiking Group", "Design Club"].map((club) => (
-                      <div key={club} className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10" />
-                        <div className="flex-1 min-w-0">
-                          <h5 className="text-sm font-semibold truncate">{club}</h5>
-                          <p className="text-xs text-muted-foreground">Member</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card className="p-4 shadow-soft">
-                  <h3 className="font-bold text-sm mb-4">Interests</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {["Web Development", "AI/ML", "Hiking", "Photography", "Music"].map((interest) => (
-                      <Badge key={interest} variant="secondary">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                </Card>
               </div>
             </div>
           </div>
