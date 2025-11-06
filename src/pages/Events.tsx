@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,10 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { createEvent, getEvents, rsvpEvent, cancelRsvp, uploadImage, Event } from "@/lib/firebase-utils";
+import { createEvent, getEvents, rsvpEvent, cancelRsvp, uploadImage, Event, addEventComment, getEventComments, Comment } from "@/lib/firebase-utils";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format } from "date-fns";
-import { Calendar, Clock, MapPin, Users, X, Image as ImageIcon, Plus } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, X, Image as ImageIcon, Plus, MessageCircle, Send } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 
 const categories = [
@@ -39,6 +40,9 @@ export default function Events() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [eventComments, setEventComments] = useState<Comment[]>([]);
+  const [newEventComment, setNewEventComment] = useState("");
   
   const [formData, setFormData] = useState({
     title: "",
@@ -169,6 +173,45 @@ export default function Events() {
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
       reader.readAsDataURL(file);
+    }
+  }
+
+  async function openEventComments(event: Event) {
+    setSelectedEvent(event);
+    if (event.id) {
+      try {
+        const fetchedComments = await getEventComments(event.id);
+        setEventComments(fetchedComments);
+      } catch (error) {
+        console.error("Error loading comments:", error);
+        toast({ title: "Error loading comments", variant: "destructive" });
+      }
+    }
+  }
+
+  async function handleAddEventComment() {
+    if (!newEventComment.trim() || !selectedEvent?.id || !currentUser) return;
+
+    const authorName =
+      userProfile?.displayName || currentUser.displayName || "Anonymous";
+    const authorAvatar =
+      userProfile?.photoURL || currentUser.photoURL || "";
+
+    try {
+      await addEventComment(selectedEvent.id, {
+        authorId: currentUser.uid,
+        authorName,
+        authorAvatar,
+        content: newEventComment,
+      });
+      setNewEventComment("");
+      const fetchedComments = await getEventComments(selectedEvent.id);
+      setEventComments(fetchedComments);
+      loadEvents(); // Refresh to update comment count
+      toast({ title: "Comment added successfully!" });
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      toast({ title: "Error adding comment", description: error instanceof Error ? error.message : "Unknown error", variant: "destructive" });
     }
   }
 
@@ -428,14 +471,24 @@ export default function Events() {
                     </CardContent>
 
                     <CardFooter className="flex flex-col gap-2">
-                      <Button 
-                        className="w-full"
-                        variant={isRSVPed ? "outline" : "default"}
-                        onClick={() => handleRSVP(event)}
+                    <div className="flex gap-2 w-full">
+                    <Button
+                      className="flex-1"
+                      variant={isRSVPed ? "outline" : "default"}
+                      onClick={() => handleRSVP(event)}
                         disabled={!isRSVPed && isFull}
-                      >
+                    >
                         {isRSVPed ? "Cancel RSVP" : isFull ? "Event Full" : "RSVP"}
                       </Button>
+                    <Button
+                        variant="outline"
+                          size="icon"
+                          onClick={() => openEventComments(event)}
+                          className="gap-2"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground text-center">
                         Organized by {event.organizerName}
                       </p>
@@ -447,6 +500,69 @@ export default function Events() {
           )}
         </main>
       </div>
+
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+      <DialogTitle>Comments</DialogTitle>
+      </DialogHeader>
+      {selectedEvent && (
+      <div className="space-y-4">
+      <div className="flex gap-3 pb-4 border-b">
+      <Avatar>
+      <AvatarImage src={selectedEvent.imageUrl} />
+      <AvatarFallback>
+      {selectedEvent.title?.charAt(0) || "E"}
+      </AvatarFallback>
+      </Avatar>
+      <div className="flex-1">
+      <h4 className="font-semibold text-sm">
+      {selectedEvent.title}
+      </h4>
+      <p className="text-sm mt-1">{selectedEvent.description}</p>
+      </div>
+      </div>
+
+      <div className="space-y-3">
+      {eventComments.map((comment) => (
+      <div key={comment.id} className="flex gap-3">
+      <Avatar className="h-8 w-8">
+      <AvatarImage src={comment.authorAvatar} />
+      <AvatarFallback className="text-xs">
+      {comment.authorName?.charAt(0)}
+      </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 bg-muted p-3 rounded-lg">
+      <h5 className="font-semibold text-xs">
+      {comment.authorName}
+      </h5>
+      <p className="text-sm mt-1">{comment.content}</p>
+      <p className="text-xs text-muted-foreground mt-1">
+      {comment.createdAt &&
+      formatDistanceToNow(comment.createdAt.toDate(), {
+      addSuffix: true,
+      })}
+      </p>
+      </div>
+      </div>
+      ))}
+      </div>
+
+      <div className="flex gap-2 pt-4 border-t">
+      <Textarea
+      placeholder="Write a comment..."
+      value={newEventComment}
+      onChange={(e) => setNewEventComment(e.target.value)}
+      className="min-h-[60px]"
+      />
+      <Button onClick={handleAddEventComment} disabled={!newEventComment.trim()}>
+      <Send className="h-4 w-4" />
+      </Button>
+      </div>
+      </div>
+      )}
+      </DialogContent>
+      </Dialog>
     </div>
   );
 }

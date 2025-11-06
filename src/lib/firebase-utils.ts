@@ -6,6 +6,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -61,6 +62,7 @@ export interface Event {
   organizerName: string;
   attendees?: string[];
   maxAttendees?: number;
+  commentCount?: number;
   createdAt?: any;
 }
 
@@ -260,18 +262,72 @@ export async function getComments(postId: string): Promise<Comment[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Comment) }));
 }
 
+// Event Comments
+export async function addEventComment(eventId: string, comment: Omit<Comment, "id" | "createdAt" | "postId">) {
+  try {
+    const data = { ...comment, postId: eventId, createdAt: serverTimestamp() };
+    const commentRef = await addDoc(collection(db, "comments"), data);
+
+    // Get event data for comment count update and notification
+    const eventRef = doc(db, "events", eventId);
+    const eventSnap = await getDoc(eventRef);
+    if (eventSnap.exists()) {
+      const event = eventSnap.data() as Event;
+
+      // Increment comment count on event
+      const currentCount = event.commentCount || 0;
+      await updateDoc(eventRef, { commentCount: currentCount + 1 });
+
+      // Create notification for event organizer
+      if (event.organizerId !== comment.authorId) { // Don't notify if commenting on own event
+        await createNotification({
+          recipientId: event.organizerId,
+          senderId: comment.authorId,
+          senderName: comment.authorName,
+          senderAvatar: comment.authorAvatar,
+          type: "comment",
+          message: `commented on your event "${event.title}": "${comment.content.length > 50 ? comment.content.substring(0, 50) + '...' : comment.content}"`,
+          content: comment.content,
+          postId: eventId,
+        });
+      }
+    }
+
+    return commentRef;
+  } catch (error) {
+    console.error("Error in addEventComment:", error);
+    throw error;
+  }
+}
+
+export async function getEventComments(eventId: string): Promise<Comment[]> {
+  try {
+    const q = query(
+      collection(db, "comments"),
+      where("postId", "==", eventId),
+      orderBy("createdAt", "asc")
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as Comment) }));
+  } catch (error) {
+    console.error("Error in getEventComments:", error);
+    throw error;
+  }
+}
+
 // ============================
 // 🔹 EVENTS
 // ============================
 
 export async function createEvent(
-  event: Omit<Event, "id" | "createdAt" | "attendees">
+  event: Omit<Event, "id" | "createdAt" | "attendees" | "commentCount">
 ) {
   const eventData = {
     ...event,
     imageUrl: event.imageUrl || null,          // ✅ prevent undefined
     maxAttendees: event.maxAttendees ?? null,  // ✅ prevent undefined
     attendees: [],
+    commentCount: 0,
     createdAt: Timestamp.now(),
   };
 
