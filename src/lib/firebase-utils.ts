@@ -17,6 +17,8 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
+  onSnapshot,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -893,32 +895,48 @@ if (receivedSnapshot.docs.length > 0) {
 // ============================
 
 export async function createDirectChat(userId1: string, userId2: string): Promise<string> {
-  // Check if direct chat already exists
-  const existingChat = await findDirectChat(userId1, userId2);
-  if (existingChat) {
-    return existingChat.id!;
+  try {
+    // Check if direct chat already exists
+    const existingChat = await findDirectChat(userId1, userId2);
+    if (existingChat) {
+      return existingChat.id!;
+    }
+
+    // Get user details for participants
+    const [user1Details, user2Details] = await Promise.all([
+      getUserDetails(userId1),
+      getUserDetails(userId2)
+    ]);
+
+    // Clean participant details - remove undefined values
+    const participantDetails = [
+      {
+        id: userId1,
+        name: user1Details.name,
+        ...(user1Details.avatar && { avatar: user1Details.avatar })
+      },
+      {
+        id: userId2,
+        name: user2Details.name,
+        ...(user2Details.avatar && { avatar: user2Details.avatar })
+      }
+    ];
+
+    const chatData = {
+      type: "direct" as const,
+      participants: [userId1, userId2],
+      participantDetails,
+      createdBy: userId1,
+      createdAt: serverTimestamp(),
+      unreadCount: { [userId1]: 0, [userId2]: 0 }
+    };
+
+    const chatRef = await addDoc(collection(db, "chats"), chatData);
+    return chatRef.id;
+  } catch (error: any) {
+    console.error("Error in createDirectChat:", error);
+    throw error;
   }
-
-  // Get user details for participants
-  const [user1Details, user2Details] = await Promise.all([
-    getUserDetails(userId1),
-    getUserDetails(userId2)
-  ]);
-
-  const chatData: Omit<Chat, "id"> = {
-    type: "direct",
-    participants: [userId1, userId2],
-    participantDetails: [
-      { id: userId1, name: user1Details.name, avatar: user1Details.avatar },
-      { id: userId2, name: user2Details.name, avatar: user2Details.avatar }
-    ],
-    createdBy: userId1,
-    createdAt: serverTimestamp(),
-    unreadCount: { [userId1]: 0, [userId2]: 0 }
-  };
-
-  const chatRef = await addDoc(collection(db, "chats"), chatData);
-  return chatRef.id;
 }
 
 export async function createGroupChat(
@@ -928,19 +946,26 @@ export async function createGroupChat(
   participants: string[]
 ): Promise<string> {
   // Get participant details
-  const participantDetails = await Promise.all(
+  const rawParticipantDetails = await Promise.all(
     participants.map(id => getUserDetails(id))
   );
 
+  // Clean participant details - remove undefined values
+  const participantDetails = rawParticipantDetails.map(detail => ({
+    id: detail.id,
+    name: detail.name,
+    ...(detail.avatar && { avatar: detail.avatar })
+  }));
+
   // Clean the data - remove undefined values (Firestore doesn't accept them)
-  const cleanChatData = {
-  type: "group",
-  name,
-  participants: [...participants, creatorId], // Include creator
-  participantDetails,
-  createdBy: creatorId,
-  createdAt: serverTimestamp(),
-  unreadCount: participants.reduce((acc, id) => ({ ...acc, [id]: 0 }), { [creatorId]: 0 })
+  const cleanChatData: any = {
+    type: "group" as const,
+    name,
+    participants: [...participants, creatorId], // Include creator
+    participantDetails,
+    createdBy: creatorId,
+    createdAt: serverTimestamp(),
+    unreadCount: participants.reduce((acc, id) => ({ ...acc, [id]: 0 }), { [creatorId]: 0 })
   };
 
   // Only include description if it exists
@@ -1019,18 +1044,30 @@ export async function sendMessage(message: Omit<ChatMessage, "id" | "createdAt">
 }
 
 export async function getChatMessages(chatId: string, limitCount = 50): Promise<ChatMessage[]> {
-  const q = query(
-    collection(db, "messages"),
-    where("chatId", "==", chatId),
-    orderBy("createdAt", "desc"),
-    limit(limitCount)
-  );
+  try {
+    const q = query(
+      collection(db, "messages"),
+      where("chatId", "==", chatId),
+      orderBy("createdAt", "desc"),
+      limit(limitCount)
+    );
 
-  const snapshot = await getDocs(q);
-  const messages = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as ChatMessage) }));
+    const snapshot = await getDocs(q);
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as ChatMessage) }));
 
-  // Reverse to show oldest first
-  return messages.reverse();
+    // Reverse to show oldest first
+    return messages.reverse();
+  } catch (error: any) {
+    console.error("Error in getChatMessages:", error);
+    
+    // If it's an index error, provide helpful message
+    if (error.message?.includes("index")) {
+      console.error("Missing Firestore index for messages collection.");
+      console.error("Create index: chatId (Ascending) + createdAt (Descending)");
+    }
+    
+    throw error;
+  }
 }
 
 export async function markChatAsRead(chatId: string, userId: string) {
@@ -1038,6 +1075,67 @@ export async function markChatAsRead(chatId: string, userId: string) {
   await updateDoc(chatRef, {
     [`unreadCount.${userId}`]: 0
   });
+}
+
+// ============================
+// 🔹 REAL-TIME LISTENERS
+// ============================
+
+export function subscribeToUserChats(
+  userId: string, 
+  callback: (chats: Chat[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, "chats"),
+    where("participants", "array-contains", userId),
+    orderBy("createdAt", "desc")
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const chats = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...(doc.data() as Chat) 
+      }));
+      callback(chats);
+    },
+    (error) => {
+      console.error("Error in chats listener:", error);
+      if (onError) onError(error as Error);
+    }
+  );
+}
+
+export function subscribeToChatMessages(
+  chatId: string,
+  callback: (messages: ChatMessage[]) => void,
+  onError?: (error: Error) => void,
+  limitCount = 50
+): Unsubscribe {
+  const q = query(
+    collection(db, "messages"),
+    where("chatId", "==", chatId),
+    orderBy("createdAt", "desc"),
+    limit(limitCount)
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...(doc.data() as ChatMessage) 
+      }));
+      // Reverse to show oldest first
+      callback(messages.reverse());
+    },
+    (error) => {
+      console.error("Error in messages listener:", error);
+      if (onError) onError(error as Error);
+    }
+  );
 }
 
 export async function updateChat(chatId: string, updates: Partial<Pick<Chat, "name" | "description" | "avatar">>) {
@@ -1101,29 +1199,52 @@ export async function removeParticipantFromGroup(chatId: string, participantId: 
 // ============================
 
 async function getUserDetails(userId: string): Promise<{ id: string; name: string; avatar?: string }> {
-  // This is a simple implementation - in a real app, you'd have a users collection
-  // For now, we'll return basic info - you might want to expand this
+  try {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const details: { id: string; name: string; avatar?: string } = {
+        id: userId,
+        name: userData.displayName || userData.email || "Unknown User"
+      };
+      
+      // Only add avatar if it exists
+      if (userData.photoURL) {
+        details.avatar = userData.photoURL;
+      }
+      
+      return details;
+    }
+  } catch (error) {
+    console.warn("Error fetching user details:", error);
+  }
+  
+  // Fallback if user not found in database
   return {
     id: userId,
-    name: `User ${userId.substring(0, 8)}`, // Placeholder
-    avatar: undefined
+    name: "Unknown User"
   };
 }
 
 async function findDirectChat(userId1: string, userId2: string): Promise<Chat | null> {
-  const q = query(
-    collection(db, "chats"),
-    where("type", "==", "direct"),
-    where("participants", "array-contains", userId1)
-  );
+  try {
+    const q = query(
+      collection(db, "chats"),
+      where("type", "==", "direct"),
+      where("participants", "array-contains", userId1)
+    );
 
-  const snapshot = await getDocs(q);
-  for (const doc of snapshot.docs) {
-    const chat = { id: doc.id, ...(doc.data() as Chat) };
-    if (chat.participants.includes(userId2)) {
-      return chat;
+    const snapshot = await getDocs(q);
+    for (const doc of snapshot.docs) {
+      const chat = { id: doc.id, ...(doc.data() as Chat) };
+      if (chat.participants.includes(userId2)) {
+        return chat;
+      }
     }
-  }
 
-  return null;
+    return null;
+  } catch (error) {
+    console.warn("Error finding direct chat:", error);
+    return null;
+  }
 }

@@ -37,6 +37,8 @@ getFriendRequests,
 acceptFriendRequest,
 declineFriendRequest,
 FriendRequest,
+subscribeToUserChats,
+subscribeToChatMessages,
 } from "@/lib/firebase-utils";
 import type { Chat, ChatMessage } from "@/lib/firebase-utils";
 import { toast } from "sonner";
@@ -76,23 +78,40 @@ export default function Chat() {
   const [groupDescription, setGroupDescription] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
 
-  // Load initial data
+  // Real-time listener for chats
   useEffect(() => {
     if (!currentUser) return;
 
+    setLoading(true);
+
+    // Subscribe to chats in real-time
+    const unsubscribeChats = subscribeToUserChats(
+      currentUser.uid,
+      (userChats) => {
+        setChats(userChats);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error in chats subscription:", error);
+        toast.error("Failed to load chats");
+        setLoading(false);
+      }
+    );
+
+    // Load friends and friend requests
     loadData();
+
+    // Cleanup listener on unmount
+    return () => {
+      unsubscribeChats();
+    };
   }, [currentUser]);
 
   const loadData = async () => {
     if (!currentUser) return;
 
-    setLoading(true);
     try {
-      const [userChats, userFriends, userFriendRequests] = await Promise.all([
-        getUserChats(currentUser.uid).catch(err => {
-          console.error("Error loading chats:", err);
-          return [];
-        }),
+      const [userFriends, userFriendRequests] = await Promise.all([
         getFriends(currentUser.uid).catch(err => {
           console.error("Error loading friends:", err);
           return [];
@@ -103,37 +122,45 @@ export default function Chat() {
         }),
       ]);
 
-      setChats(userChats);
       setFriends(userFriends);
       setFriendRequests(userFriendRequests);
     } catch (error) {
-      console.error("Error loading chat data:", error);
-      toast.error("Failed to load chat data");
-    } finally {
-      setLoading(false);
+      console.error("Error loading data:", error);
     }
   };
 
-  // Load messages when chat is selected
+  // Real-time listener for messages when chat is selected
   useEffect(() => {
-    if (!selectedChat) return;
+    if (!selectedChat || !currentUser) return;
 
-    const loadMessages = async () => {
-      try {
-        const chatMessages = await getChatMessages(selectedChat.id!);
+    // Subscribe to messages in real-time
+    const unsubscribeMessages = subscribeToChatMessages(
+      selectedChat.id!,
+      (chatMessages) => {
         setMessages(chatMessages);
-
-        // Mark chat as read
-        if (currentUser) {
-          await markChatAsRead(selectedChat.id!, currentUser.uid);
+      },
+      (error) => {
+        console.error("Error in messages subscription:", error);
+        
+        if (error.message?.includes("index")) {
+          toast.error("Database index required. Check console for link to create it.");
+        } else if (error.message?.includes('permission-denied')) {
+          toast.error("Permission denied. Check Firebase rules are deployed.");
+        } else {
+          toast.error("Failed to load messages");
         }
-      } catch (error) {
-        console.error("Error loading messages:", error);
-        toast.error("Failed to load messages");
       }
-    };
+    );
 
-    loadMessages();
+    // Mark chat as read
+    markChatAsRead(selectedChat.id!, currentUser.uid).catch(err => {
+      console.error("Error marking chat as read:", err);
+    });
+
+    // Cleanup listener on unmount or chat change
+    return () => {
+      unsubscribeMessages();
+    };
   }, [selectedChat, currentUser]);
 
   // Scroll to bottom when new messages arrive
@@ -166,18 +193,23 @@ export default function Chat() {
 
     try {
       const chatId = await createDirectChat(currentUser.uid, friendId);
-      const updatedChats = await getUserChats(currentUser.uid);
-      setChats(updatedChats);
-
-      // Select the new chat
-      const newChat = updatedChats.find(chat => chat.id === chatId);
-      if (newChat) setSelectedChat(newChat);
+      
+      // The real-time listener will automatically update the chats list
+      // Just wait a moment and select the chat
+      setTimeout(() => {
+        const newChat = chats.find(chat => chat.id === chatId);
+        if (newChat) setSelectedChat(newChat);
+      }, 500);
 
       setNewChatDialog(false);
       toast.success("Chat started!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating chat:", error);
-      toast.error("Failed to start chat");
+      if (error.code === 'permission-denied') {
+        toast.error("Permission denied. Please check Firebase rules are deployed.");
+      } else {
+        toast.error(error.message || "Failed to start chat");
+      }
     }
   };
 
