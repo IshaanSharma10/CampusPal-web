@@ -171,6 +171,8 @@ export interface ChatMessage {
   createdAt?: any;
   editedAt?: any;
   replyTo?: string; // Message ID being replied to
+  deleted?: boolean; // True if message was deleted
+  deletedAt?: any; // When the message was deleted
 }
 
 // ============================
@@ -1154,9 +1156,16 @@ export async function addParticipantsToGroup(chatId: string, participantIds: str
   if (chat.type !== "group") throw new Error("Can only add participants to group chats");
 
   // Get new participant details
-  const newParticipantDetails = await Promise.all(
+  const rawParticipantDetails = await Promise.all(
     participantIds.map(id => getUserDetails(id))
   );
+
+  // Clean participant details - remove undefined values
+  const newParticipantDetails = rawParticipantDetails.map(detail => ({
+    id: detail.id,
+    name: detail.name,
+    ...(detail.avatar && { avatar: detail.avatar })
+  }));
 
   // Update participants and unread counts
   const updatedParticipants = [...chat.participants, ...participantIds];
@@ -1191,6 +1200,28 @@ export async function removeParticipantFromGroup(chatId: string, participantId: 
     participants: updatedParticipants,
     participantDetails: updatedParticipantDetails,
     unreadCount: updatedUnreadCount
+  });
+}
+
+export async function deleteMessage(messageId: string, userId: string) {
+  const messageRef = doc(db, "messages", messageId);
+  
+  // Get the message to verify ownership
+  const messageSnap = await getDoc(messageRef);
+  if (!messageSnap.exists()) throw new Error("Message not found");
+  
+  const message = messageSnap.data() as ChatMessage;
+  
+  // Only allow sender to delete their own messages
+  if (message.senderId !== userId) {
+    throw new Error("You can only delete your own messages");
+  }
+  
+  // Mark as deleted instead of removing completely (WhatsApp style)
+  await updateDoc(messageRef, {
+    deleted: true,
+    deletedAt: serverTimestamp(),
+    content: "This message was deleted" // Replace content
   });
 }
 

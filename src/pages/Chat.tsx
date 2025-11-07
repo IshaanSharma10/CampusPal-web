@@ -39,6 +39,8 @@ declineFriendRequest,
 FriendRequest,
 subscribeToUserChats,
 subscribeToChatMessages,
+addParticipantsToGroup,
+deleteMessage,
 } from "@/lib/firebase-utils";
 import type { Chat, ChatMessage } from "@/lib/firebase-utils";
 import { toast } from "sonner";
@@ -74,6 +76,7 @@ export default function Chat() {
   // Dialog states
   const [newChatDialog, setNewChatDialog] = useState(false);
   const [newGroupDialog, setNewGroupDialog] = useState(false);
+  const [addMembersDialog, setAddMembersDialog] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
@@ -237,6 +240,42 @@ export default function Chat() {
     } catch (error) {
       console.error("Error creating group chat:", error);
       toast.error("Failed to create group chat");
+    }
+  };
+
+  const handleAddMembers = async () => {
+    if (!selectedChat || selectedFriends.length === 0 || !currentUser) return;
+
+    try {
+      await addParticipantsToGroup(selectedChat.id!, selectedFriends);
+      
+      setSelectedFriends([]);
+      setAddMembersDialog(false);
+      toast.success("Members added successfully!");
+    } catch (error: any) {
+      console.error("Error adding members:", error);
+      toast.error(error.message || "Failed to add members");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string | undefined) => {
+    if (!currentUser || !messageId) {
+      toast.error("Cannot delete message");
+      return;
+    }
+
+    try {
+      await deleteMessage(messageId, currentUser.uid);
+      toast.success("Message deleted");
+    } catch (error: any) {
+      console.error("Error deleting message:", error);
+      if (error.message?.includes("only delete your own")) {
+        toast.error("You can only delete your own messages");
+      } else if (error.message?.includes('permission-denied')) {
+        toast.error("Permission denied. Check Firebase rules are deployed.");
+      } else {
+        toast.error(error.message || "Failed to delete message");
+      }
     }
   };
 
@@ -495,6 +534,53 @@ export default function Chat() {
                       </div>
                     </DialogContent>
                   </Dialog>
+
+                  {/* Add Members Dialog */}
+                  <Dialog open={addMembersDialog} onOpenChange={setAddMembersDialog}>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Members to Group</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-2">Select friends to add:</h4>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {friends.filter(friend => 
+                              !selectedChat?.participants.includes(friend.id)
+                            ).map((friend) => (
+                              <Button
+                                key={friend.id}
+                                variant={selectedFriends.includes(friend.id) ? "default" : "ghost"}
+                                size="sm"
+                                className="w-full justify-start gap-3"
+                                onClick={() => {
+                                  setSelectedFriends(prev =>
+                                    prev.includes(friend.id)
+                                      ? prev.filter(id => id !== friend.id)
+                                      : [...prev, friend.id]
+                                  );
+                                }}
+                              >
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={friend.avatar} />
+                                  <AvatarFallback className="text-xs">{friend.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{friend.name}</span>
+                                {selectedFriends.includes(friend.id) && <Check className="h-4 w-4 ml-auto" />}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <Button
+                          onClick={handleAddMembers}
+                          disabled={selectedFriends.length === 0}
+                          className="w-full"
+                        >
+                          Add {selectedFriends.length} Member{selectedFriends.length !== 1 ? 's' : ''}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </>
             )}
@@ -608,6 +694,15 @@ export default function Chat() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
+                        {selectedChat.type === "group" && (
+                          <>
+                            <DropdownMenuItem onClick={() => setAddMembersDialog(true)}>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Add Members
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         <DropdownMenuItem>
                           <Settings className="h-4 w-4 mr-2" />
                           Chat Settings
@@ -641,18 +736,45 @@ export default function Chat() {
                             <AvatarFallback>{msg.senderName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         )}
-                        <div className={`max-w-md ${msg.senderId === currentUser.uid ? "items-end" : ""}`}>
+                        <div className={`flex flex-col ${msg.senderId === currentUser.uid ? "items-end" : ""}`}>
                           {msg.senderId !== currentUser.uid && selectedChat.type === "group" && (
                             <p className="text-xs text-muted-foreground mb-1">{msg.senderName}</p>
                           )}
-                          <div
-                            className={`rounded-2xl p-3 ${
-                              msg.senderId === currentUser.uid
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted"
-                            }`}
-                          >
-                            <p className="text-sm">{msg.content}</p>
+                          <div className="flex items-start gap-2 group max-w-md">
+                            <div
+                              className={`rounded-2xl p-3 flex-1 ${
+                                msg.deleted 
+                                  ? "bg-muted/50 border border-dashed" 
+                                  : msg.senderId === currentUser.uid
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted"
+                              }`}
+                            >
+                              <p className={`text-sm ${msg.deleted ? "italic text-muted-foreground" : ""}`}>
+                                {msg.content}
+                              </p>
+                            </div>
+                            {!msg.deleted && msg.senderId === currentUser.uid && msg.id && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-7 w-7 flex-shrink-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteMessage(msg.id)}
+                                    className="text-destructive"
+                                  >
+                                    Delete Message
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {msg.createdAt && formatDistanceToNow(msg.createdAt.toDate(), { addSuffix: true })}
