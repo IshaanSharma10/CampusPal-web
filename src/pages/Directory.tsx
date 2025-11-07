@@ -115,20 +115,21 @@ export default function Directory() {
         try {
             await sendFriendRequest({
                 senderId: currentUser.uid,
-                senderName: currentUser.displayName || "Anonymous",
+                senderName: currentUser.displayName || currentUser.email || "Anonymous",
                 senderAvatar: currentUser.photoURL || undefined,
                 recipientId: student.uid,
-                recipientName: student.displayName,
-                recipientAvatar: student.photoURL,
+                recipientName: student.displayName || student.email || "Unknown",
+                recipientAvatar: student.photoURL || undefined,
             });
             toast({
                 title: "Friend request sent!",
-                description: `You've sent a friend request to ${student.displayName}`,
+                description: `You've sent a friend request to ${student.displayName || student.email || "this user"}`,
             });
-        } catch (error) {
+        } catch (error: any) {
+            console.error("sendFriendRequest failed:", error);
             toast({
                 title: "Error",
-                description: "Failed to send friend request",
+                description: error.message || "Failed to send friend request",
                 variant: "destructive",
             });
         }

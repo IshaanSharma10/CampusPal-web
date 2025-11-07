@@ -220,8 +220,13 @@ export default function Feed() {
         );
       }
       loadPosts();
-    } catch {
-      toast.error("Error updating like");
+    } catch (error: any) {
+      console.error("Error updating like:", error);
+      if (error.code === 'permission-denied') {
+        toast.error("Permission denied. Please check Firebase rules are deployed.");
+      } else {
+        toast.error("Error updating like");
+      }
     }
   }
 
@@ -272,12 +277,16 @@ export default function Feed() {
       const fetchedComments = await getComments(selectedPost.id);
       setComments(fetchedComments);
       loadPosts(); // Refresh post to update comment count
-    toast.success("Comment added!");
-    } catch (error) {
-    console.error("Error adding comment:", error);
-    toast.error("Failed to add comment");
+      toast.success("Comment added!");
+    } catch (error: any) {
+      console.error("Error adding comment:", error);
+      if (error.code === 'permission-denied') {
+        toast.error("Permission denied. Please check Firebase rules are deployed.");
+      } else {
+        toast.error("Failed to add comment");
+      }
     }
-    }
+  }
 
     // ✅ Edit Comment
   function startEditingComment(comment: Comment) {

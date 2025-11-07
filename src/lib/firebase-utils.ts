@@ -235,21 +235,26 @@ export async function likePost(postId: string, userId: string, userName: string,
     likeCount: increment(1),
   });
 
-  // Get post author to create notification
-  const postSnap = await getDoc(postRef);
-  if (postSnap.exists()) {
-    const post = postSnap.data() as Post;
-    if (post.authorId !== userId) { // Don't notify if liking own post
-      await createNotification({
-        recipientId: post.authorId,
-        senderId: userId,
-        senderName: userName,
-        senderAvatar: userAvatar,
-        type: "like",
-        message: `liked your post.`,
-        postId: postId,
-      });
+  // Get post author to create notification (don't fail if this fails)
+  try {
+    const postSnap = await getDoc(postRef);
+    if (postSnap.exists()) {
+      const post = postSnap.data() as Post;
+      if (post.authorId !== userId) { // Don't notify if liking own post
+        await createNotification({
+          recipientId: post.authorId,
+          senderId: userId,
+          senderName: userName,
+          senderAvatar: userAvatar,
+          type: "like",
+          message: `liked your post.`,
+          postId: postId,
+        });
+      }
     }
+  } catch (notificationError) {
+    console.warn("Failed to create like notification:", notificationError);
+    // Don't fail the like if notification creation fails
   }
 }
 
@@ -288,22 +293,27 @@ const cleanComment = Object.fromEntries(
   const postRef = doc(db, "posts", comment.postId);
   await updateDoc(postRef, { commentCount: increment(1) });
 
-  // Get post author to create notification
-  const postSnap = await getDoc(postRef);
-  if (postSnap.exists()) {
-    const post = postSnap.data() as Post;
-    if (post.authorId !== comment.authorId) { // Don't notify if commenting on own post
-      await createNotification({
-        recipientId: post.authorId,
-        senderId: comment.authorId,
-        senderName: comment.authorName,
-        senderAvatar: comment.authorAvatar,
-        type: "comment",
-        message: `commented: "${comment.content.length > 50 ? comment.content.substring(0, 50) + '...' : comment.content}"`,
-        content: comment.content,
-        postId: comment.postId,
-      });
+  // Get post author to create notification (don't fail if this fails)
+  try {
+    const postSnap = await getDoc(postRef);
+    if (postSnap.exists()) {
+      const post = postSnap.data() as Post;
+      if (post.authorId !== comment.authorId) { // Don't notify if commenting on own post
+        await createNotification({
+          recipientId: post.authorId,
+          senderId: comment.authorId,
+          senderName: comment.authorName,
+          senderAvatar: comment.authorAvatar,
+          type: "comment",
+          message: `commented: "${comment.content.length > 50 ? comment.content.substring(0, 50) + '...' : comment.content}"`,
+          content: comment.content,
+          postId: comment.postId,
+        });
+      }
     }
+  } catch (notificationError) {
+    console.warn("Failed to create comment notification:", notificationError);
+    // Don't fail the comment if notification creation fails
   }
 
   return commentRef;
@@ -637,8 +647,8 @@ export async function markLostFoundResolved(itemId: string) {
 
 export async function sendFriendRequest(friendRequest: Omit<FriendRequest, "id" | "createdAt" | "status">) {
   // Validate required fields
-  if (!friendRequest.senderId || !friendRequest.recipientId || !friendRequest.senderName || !friendRequest.recipientName) {
-    throw new Error("Missing required friend request fields");
+  if (!friendRequest.senderId || !friendRequest.recipientId) {
+    throw new Error("Missing user IDs");
   }
 
   // Don't allow self-friend requests
@@ -648,40 +658,59 @@ export async function sendFriendRequest(friendRequest: Omit<FriendRequest, "id" 
 
   // Check if there's already a pending request between these users
   try {
-    const existingRequestQuery = query(
-      collection(db, "friendRequests"),
-      where("senderId", "in", [friendRequest.senderId, friendRequest.recipientId]),
-      where("recipientId", "in", [friendRequest.senderId, friendRequest.recipientId]),
-      where("status", "==", "pending")
-    );
-
-    const existingRequests = await getDocs(existingRequestQuery);
-    if (!existingRequests.empty) {
+    const [sentSnapshot, receivedSnapshot] = await Promise.all([
+      getDocs(query(
+        collection(db, "friendRequests"),
+        where("senderId", "==", friendRequest.senderId),
+        where("recipientId", "==", friendRequest.recipientId),
+        where("status", "==", "pending"),
+        limit(1)
+      )),
+      getDocs(query(
+        collection(db, "friendRequests"),
+        where("senderId", "==", friendRequest.recipientId),
+        where("recipientId", "==", friendRequest.senderId),
+        where("status", "==", "pending"),
+        limit(1)
+      ))
+    ]);
+    
+    if (!sentSnapshot.empty || !receivedSnapshot.empty) {
       throw new Error("A friend request already exists between these users");
     }
-  } catch (checkError) {
-    // If the check fails, continue anyway (might be due to permissions)
+  } catch (checkError: any) {
+    // If it's our custom error, re-throw it
+    if (checkError.message === "A friend request already exists between these users") {
+      throw checkError;
+    }
+    // Otherwise, log and continue (might be due to permissions)
     console.warn("Could not check for existing requests:", checkError);
   }
 
-  // Clean the data - remove undefined values (Firestore doesn't accept them)
-  const cleanFriendRequest = Object.fromEntries(
-    Object.entries(friendRequest).filter(([_, value]) => value !== undefined)
-  );
-
-  const data = { ...cleanFriendRequest, status: "pending", createdAt: serverTimestamp() };
+  // Prepare data with defaults for optional fields
+  const data = {
+    senderId: friendRequest.senderId,
+    recipientId: friendRequest.recipientId,
+    senderName: friendRequest.senderName || "Anonymous",
+    recipientName: friendRequest.recipientName || "Unknown",
+    senderAvatar: friendRequest.senderAvatar || null,
+    recipientAvatar: friendRequest.recipientAvatar || null,
+    status: "pending",
+    createdAt: serverTimestamp(),
+  };
+  
   const requestRef = await addDoc(collection(db, "friendRequests"), data);
 
 // Create notification for friend request (optional - don't fail if this fails)
 try {
-  const notificationData = {
-  recipientId: friendRequest.recipientId,
-  senderId: friendRequest.senderId,
-  senderName: friendRequest.senderName,
-  type: "friend_request",
-  message: "sent you a friend request.",
-  requestId: requestRef.id,
-};
+  const notificationData: any = {
+    recipientId: friendRequest.recipientId,
+    senderId: friendRequest.senderId,
+    senderName: friendRequest.senderName,
+    type: "friend_request" as const,
+    message: "sent you a friend request.",
+    requestId: requestRef.id,
+  };
 
   // Only include senderAvatar if it exists
   if (friendRequest.senderAvatar) {
@@ -955,17 +984,34 @@ export async function sendMessage(message: Omit<ChatMessage, "id" | "createdAt">
     [`unreadCount.${message.senderId}`]: 0 // Reset sender's unread count
   });
 
-  // Increment unread count for other participants
+  // Increment unread count for other participants and create notifications
   const chatSnap = await getDoc(chatRef);
   if (chatSnap.exists()) {
     const chat = chatSnap.data() as Chat;
     const updates: any = {};
-    chat.participants.forEach(participantId => {
+    
+    chat.participants.forEach(async (participantId) => {
       if (participantId !== message.senderId) {
         const currentCount = chat.unreadCount?.[participantId] || 0;
         updates[`unreadCount.${participantId}`] = currentCount + 1;
+        
+        // Create notification for new message
+        try {
+          await createNotification({
+            recipientId: participantId,
+            senderId: message.senderId,
+            senderName: message.senderName,
+            senderAvatar: message.senderAvatar,
+            type: "message",
+            message: `sent you a message: "${message.content.length > 50 ? message.content.substring(0, 50) + '...' : message.content}"`,
+            content: message.content,
+          });
+        } catch (notificationError) {
+          console.warn("Failed to create message notification:", notificationError);
+        }
       }
     });
+    
     await updateDoc(chatRef, updates);
   }
 
