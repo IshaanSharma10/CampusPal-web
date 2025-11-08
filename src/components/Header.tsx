@@ -1,4 +1,4 @@
-import { Search, MessageSquare, Menu, Home, Calendar, Users, ShoppingBag, BookOpen, FileSearch, UsersRound, Briefcase, User, Settings } from "lucide-react";
+import { Search, MessageSquare, Menu, Home, Calendar, Users, ShoppingBag, BookOpen, FileSearch, UsersRound, Briefcase, User, Settings, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -116,14 +116,34 @@ export const Header = () => {
                 {/* Actions */}
                 <div className="flex items-center gap-1 sm:gap-2">
                     <ThemeToggle />
-                    <NotificationDropdown />
-                    <Button variant="ghost" size="icon" className="hidden sm:flex h-9 w-9">
+                    {/* Desktop: Dropdown, Mobile: Navigate to page */}
+                    <div className="hidden lg:block">
+                        <NotificationDropdown />
+                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="lg:hidden h-9 w-9 relative"
+                        onClick={() => window.location.href = '/notifications'}
+                    >
+                        <Bell className="h-5 w-5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="hidden sm:flex lg:flex h-9 w-9" onClick={() => window.location.href = '/chat'}>
                         <MessageSquare className="h-5 w-5" />
                     </Button>
-                    <Avatar className="h-8 w-8 sm:h-9 sm:w-9 cursor-pointer ring-2 ring-transparent hover:ring-primary transition-smooth">
-                        <AvatarImage src="/placeholder.svg" alt="User" />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">AD</AvatarFallback>
-                    </Avatar>
+                    <div 
+                        className="cursor-pointer"
+                        onClick={() => {
+                            if (window.innerWidth < 1024) {
+                                window.location.href = '/profile';
+                            }
+                        }}
+                    >
+                        <Avatar className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-transparent hover:ring-primary transition-smooth">
+                            <AvatarImage src="/placeholder.svg" alt="User" />
+                            <AvatarFallback className="bg-primary text-primary-foreground text-xs">AD</AvatarFallback>
+                        </Avatar>
+                    </div>
                 </div>
             </div>
         </header>
