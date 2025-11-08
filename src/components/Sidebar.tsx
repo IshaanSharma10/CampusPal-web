@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Calendar, User, Search, Users, Settings, ShoppingBag, BookOpen, FileSearch, UsersRound } from "lucide-react";
+import { Home, MessageSquare, Calendar, User, Search, Users, Settings, ShoppingBag, BookOpen, FileSearch, UsersRound, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from '../../public/logo.png'
 
@@ -7,6 +7,7 @@ const navigation = [
     { name: "Feed", href: "/feed", icon: Home },
     { name: "Chat", href: "/chat", icon: MessageSquare },
     { name: "Events", href: "/events", icon: Calendar },
+    {name: "Placements & Internships" ,href:"/placements" ,icon: Briefcase},
     { name: "Directory", href: "/directory", icon: UsersRound },
     { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
     { name: "Study Corner", href: "/study-corner", icon: BookOpen },
