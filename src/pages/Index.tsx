@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { MessageSquare, Calendar, Users } from "lucide-react";
 import Tiet from '../../public/Tiet.jpg'
-import logo from '../../public/logo.png'
+import logo from '../../public/logoweb.png'
 
 export default function Index() {
   return (

@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { Home, MessageSquare, Calendar, User, Search, Users, Settings, ShoppingBag, BookOpen, FileSearch, UsersRound, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logo from '../../public/logo.png'
+import logo from '../../public/logoweb.png'
 
 const navigation = [
     { name: "Feed", href: "/feed", icon: Home },

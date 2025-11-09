@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import logo from '../../public/logo.png';
+import logo from '../../public/logoweb.png';
 
 const navigation = [
     { name: "Feed", href: "/feed", icon: Home },
