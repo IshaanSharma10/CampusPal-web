@@ -152,9 +152,13 @@ service cloud.firestore {
       // Anyone authenticated can read events
       allow read: if isAuthenticated();
       // Only authenticated users can create events
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.createdBy;
-      // Only event creator can update/delete
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.createdBy;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.organizerId;
+      // Only event organizer can update/delete, or anyone can update attendees
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.organizerId ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees', 'commentCount']))
+      );
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.organizerId;
     }
     
     // ============================
@@ -172,13 +176,13 @@ service cloud.firestore {
     // ============================
     // LOST & FOUND ITEMS COLLECTION
     // ============================
-    match /lostFoundItems/{itemId} {
+    match /lostFound/{itemId} {
       // Anyone authenticated can read lost & found items
       allow read: if isAuthenticated();
       // Only authenticated users can create items
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.reportedBy;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.reporterId;
       // Only reporter can update/delete
-      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.reportedBy;
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.reporterId;
     }
     
     // ============================

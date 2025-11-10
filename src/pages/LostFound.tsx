@@ -11,11 +11,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { createLostFoundItem, getLostFoundItems, uploadImage, LostFound, markLostFoundResolved } from "@/lib/firebase-utils";
+import { createLostFoundItem, getLostFoundItems, uploadImage, LostFound, markLostFoundResolved, addComment, getComments, deleteComment, Comment } from "@/lib/firebase-utils";
 import { useToast } from "@/hooks/use-toast";
-import { Image as ImageIcon, MapPin, Calendar, Phone, Check, X } from "lucide-react";
+import { Image as ImageIcon, MapPin, Calendar, Phone, Check, X, MessageCircle, Send, MoreVertical, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const itemCategories = [
   { value: 'electronics', label: 'Electronics' },
@@ -34,17 +47,21 @@ export default function LostFoundPage() {
   const [loading, setLoading] = useState(false);
   const [loadingItems, setLoadingItems] = useState(true);
   const [activeTab, setActiveTab] = useState<'lost' | 'found'>('lost');
+  const [selectedItem, setSelectedItem] = useState<LostFound | null>(null);
+  const [itemComments, setItemComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
   
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
+  title: "",
+  description: "",
     category: "",
     location: "",
     date: "",
-    contact: "",
-  });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
+     contact: "",
+   });
+   const [imageFile, setImageFile] = useState<File | null>(null);
+   const [imagePreview, setImagePreview] = useState<string>("");
 
   useEffect(() => {
     if (!currentUser) {
@@ -55,20 +72,23 @@ export default function LostFoundPage() {
   }, [currentUser, navigate]);
 
   const loadItems = async () => {
-    setLoadingItems(true);
-    try {
-      const fetchedItems = await getLostFoundItems();
-      setItems(fetchedItems);
-    } catch (error) {
-      toast({
-        title: "Error loading items",
-        description: "Failed to fetch lost and found items",
-        variant: "destructive",
-      });
+  setLoadingItems(true);
+  try {
+  const fetchedItems = await getLostFoundItems();
+  setItems(fetchedItems || []);
+    console.log("✅ Loaded lost and found items:", fetchedItems?.length || 0);
+  } catch (error) {
+  console.error("❌ Error loading items:", error);
+  toast({
+  title: "Error loading items",
+    description: error instanceof Error ? error.message : "Failed to fetch lost and found items",
+      variant: "destructive",
+  });
+    setItems([]);
     } finally {
-      setLoadingItems(false);
-    }
-  };
+       setLoadingItems(false);
+     }
+   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,79 +103,146 @@ export default function LostFoundPage() {
   };
 
   const handleSubmit = async (type: 'lost' | 'found') => {
-    if (!formData.title || !formData.description || !formData.category || !formData.location || !formData.date || !formData.contact) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!formData.title || !formData.description || !formData.category || !formData.location || !formData.date || !formData.contact) {
+  toast({
+  title: "Missing fields",
+  description: "Please fill in all required fields",
+  variant: "destructive",
+  });
+  return;
+  }
 
-    setLoading(true);
-    try {
-      let imageUrl = undefined;
-      if (imageFile) {
-        imageUrl = await uploadImage(imageFile, 'lostfound');
-      }
+  setLoading(true);
+  try {
+  let imageUrl: string | undefined = undefined;
+  if (imageFile) {
+  imageUrl = await uploadImage(imageFile, 'lostfound');
+  }
 
-      await createLostFoundItem({
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        location: formData.location,
-        date: new Date(formData.date) as any,
-        type,
-        reporterId: currentUser!.uid,
-        reporterName: userProfile?.displayName || 'Anonymous',
-        reporterContact: formData.contact,
-        imageUrl,
-      });
+  const result = await createLostFoundItem({
+  title: formData.title,
+  description: formData.description,
+  category: formData.category,
+  location: formData.location,
+  date: new Date(formData.date) as any,
+  type,
+  reporterId: currentUser!.uid,
+  reporterName: userProfile?.displayName || 'Anonymous',
+  reporterContact: formData.contact,
+  imageUrl,
+  });
 
-      toast({
-        title: "Item reported successfully",
-        description: `Your ${type} item has been posted`,
-      });
+  console.log("✅ Item created:", result.id);
+  toast({
+  title: "Item reported successfully",
+    description: `Your ${type} item has been posted`,
+       });
 
-      setFormData({
-        title: "",
-        description: "",
-        category: "",
-        location: "",
-        date: "",
-        contact: "",
-      });
-      setImageFile(null);
-      setImagePreview("");
-      loadItems();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to report item",
-        variant: "destructive",
-      });
-    } finally {
+  setFormData({
+  title: "",
+  description: "",
+  category: "",
+  location: "",
+  date: "",
+    contact: "",
+  });
+  setImageFile(null);
+  setImagePreview("");
+    loadItems();
+  } catch (error) {
+  console.error("❌ Error creating item:", error);
+  toast({
+  title: "Error",
+    description: error instanceof Error ? error.message : "Failed to report item",
+      variant: "destructive",
+  });
+  } finally {
       setLoading(false);
-    }
-  };
+     }
+   };
 
   const handleMarkResolved = async (itemId: string) => {
-    try {
-      await markLostFoundResolved(itemId);
-      toast({
-        title: "Item marked as resolved",
-      });
-      loadItems();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to mark item as resolved",
-        variant: "destructive",
-      });
-    }
+  try {
+  await markLostFoundResolved(itemId);
+  toast({
+  title: "Item marked as resolved",
+  });
+  loadItems();
+  } catch (error) {
+  toast({
+  title: "Error",
+  description: "Failed to mark item as resolved",
+  variant: "destructive",
+  });
+  }
   };
 
-  const filteredItems = items.filter(item => item.type === activeTab);
+  const openItemComments = async (item: LostFound) => {
+     setSelectedItem(item);
+     if (item.id) {
+       setLoadingComments(true);
+       try {
+         const comments = await getComments(item.id);
+         setItemComments(comments);
+       } catch (error) {
+         console.error("Error loading comments:", error);
+         toast({
+           title: "Error loading comments",
+           variant: "destructive",
+         });
+       } finally {
+         setLoadingComments(false);
+       }
+     }
+   };
+
+   const handleAddComment = async () => {
+     if (!newComment.trim() || !selectedItem?.id || !currentUser) return;
+
+     try {
+       await addComment({
+         postId: selectedItem.id,
+         authorId: currentUser.uid,
+         authorName: userProfile?.displayName || currentUser.displayName || "Anonymous",
+         authorAvatar: userProfile?.photoURL || currentUser.photoURL,
+         content: newComment,
+       });
+
+       setNewComment("");
+       const comments = await getComments(selectedItem.id);
+       setItemComments(comments);
+       toast({
+         title: "Comment added successfully!",
+       });
+     } catch (error) {
+       console.error("Error adding comment:", error);
+       toast({
+         title: "Error adding comment",
+         variant: "destructive",
+       });
+     }
+   };
+
+   const handleDeleteComment = async (commentId: string) => {
+     try {
+       await deleteComment(commentId);
+       toast({
+         title: "Comment deleted!",
+       });
+       if (selectedItem?.id) {
+         const comments = await getComments(selectedItem.id);
+         setItemComments(comments);
+       }
+     } catch (error) {
+       console.error("Error deleting comment:", error);
+       toast({
+         title: "Error deleting comment",
+         variant: "destructive",
+       });
+     }
+   };
+
+   const filteredItems = items.filter(item => item.type === activeTab);
 
   return (
     <div className="min-h-screen bg-background">

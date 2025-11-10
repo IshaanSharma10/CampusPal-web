@@ -582,61 +582,76 @@ export async function createLostFoundItem(
     resolved: false,
     createdAt: serverTimestamp(),
   };
+  // Remove undefined fields to avoid Firestore errors
+  Object.keys(data).forEach(key => data[key as keyof typeof data] === undefined && delete data[key as keyof typeof data]);
   return await addDoc(collection(db, "lostFound"), data);
 }
 
 export async function getLostFoundItems(type?: "lost" | "found"): Promise<LostFound[]> {
-const baseRef = collection(db, "lostFound");
+  try {
+    const baseRef = collection(db, "lostFound");
 
-if (type) {
-try {
-const q = query(
-baseRef,
-where("type", "==", type),
-where("resolved", "==", false),
-orderBy("createdAt", "desc"),
-limit(20)
-);
-const snapshot = await getDocs(q);
-return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
-} catch (error: any) {
-console.warn("Composite index error in getLostFoundItems, falling back to unordered fetch:", error);
-const q = query(baseRef, where("type", "==", type), where("resolved", "==", false));
-      const snapshot = await getDocs(q);
-    const items = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
-    // Sort in memory by createdAt desc and limit
-      return items
-        .sort((a, b) => {
-          const aTime = a.createdAt?.toDate?.() || new Date(0);
-          const bTime = b.createdAt?.toDate?.() || new Date(0);
-          return bTime.getTime() - aTime.getTime(); // Descending
-        })
-        .slice(0, 20);
+    if (type) {
+      try {
+        const q = query(
+          baseRef,
+          where("type", "==", type),
+          where("resolved", "==", false),
+          orderBy("createdAt", "desc"),
+          limit(20)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
+      } catch (error: any) {
+        console.warn("Composite index error in getLostFoundItems, falling back to unordered fetch:", error);
+        try {
+          const q = query(baseRef, where("type", "==", type), where("resolved", "==", false));
+          const snapshot = await getDocs(q);
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
+          return items
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime.getTime() - aTime.getTime();
+            })
+            .slice(0, 20);
+        } catch (fallbackError) {
+          console.error("Error in getLostFoundItems fallback:", fallbackError);
+          return [];
+        }
+      }
+    } else {
+      try {
+        const q = query(
+          baseRef,
+          where("resolved", "==", false),
+          orderBy("createdAt", "desc"),
+          limit(20)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
+      } catch (error: any) {
+        console.warn("Composite index error in getLostFoundItems, falling back to unordered fetch:", error);
+        try {
+          const q = query(baseRef, where("resolved", "==", false));
+          const snapshot = await getDocs(q);
+          const items = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
+          return items
+            .sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime.getTime() - aTime.getTime();
+            })
+            .slice(0, 20);
+        } catch (fallbackError) {
+          console.error("Error in getLostFoundItems fallback:", fallbackError);
+          return [];
+        }
+      }
     }
-  } else {
-    try {
-      const q = query(
-        baseRef,
-        where("resolved", "==", false),
-        orderBy("createdAt", "desc"),
-        limit(20)
-      );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
-    } catch (error: any) {
-      console.warn("Composite index error in getLostFoundItems, falling back to unordered fetch:", error);
-      const q = query(baseRef, where("resolved", "==", false));
-      const snapshot = await getDocs(q);
-      const items = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as LostFound) }));
-      // Sort in memory by createdAt desc and limit
-      return items
-        .sort((a, b) => {
-          const aTime = a.createdAt?.toDate?.() || new Date(0);
-          const bTime = b.createdAt?.toDate?.() || new Date(0);
-          return bTime.getTime() - aTime.getTime(); // Descending
-        })
-        .slice(0, 20);
-    }
+  } catch (error: any) {
+    console.error("Unexpected error in getLostFoundItems:", error);
+    throw error;
   }
 }
 
