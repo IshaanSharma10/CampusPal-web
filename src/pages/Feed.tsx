@@ -17,6 +17,7 @@ import {
     Trash2,
     Eye,
     EyeOff,
+    Send,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +32,8 @@ import {
     Post,
     addComment,
     getComments,
+    updateComment,
+    deleteComment,
     Comment,
 } from "@/lib/firebase-utils";
 import { toast } from "sonner";
@@ -60,6 +63,13 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 
 // ✅ Compress and resize image before upload
 async function compressImage(file: File): Promise<File> {
@@ -124,6 +134,12 @@ export default function Feed() {
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editingContent, setEditingContent] = useState("");
     const [deletePostId, setDeletePostId] = useState<string | null>(null);
+    const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [newComment, setNewComment] = useState("");
+    const [loadingComments, setLoadingComments] = useState(false);
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editingCommentText, setEditingCommentText] = useState("");
 
     useEffect(() => {
         if (!currentUser) {
@@ -254,9 +270,98 @@ export default function Feed() {
         }
     }
 
-    // ✅ Comments (open later)
+    // ✅ Open Comments Sheet
     async function openComments(post: Post) {
-        toast.info("Comments feature coming soon!");
+        if (!post.id) return;
+        setCommentsPostId(post.id);
+        setLoadingComments(true);
+        try {
+            const fetchedComments = await getComments(post.id);
+            setComments(fetchedComments);
+        } catch (error: any) {
+            toast.error("Error loading comments");
+            console.error(error);
+        } finally {
+            setLoadingComments(false);
+        }
+    }
+
+    // ✅ Add Comment
+    async function handleAddComment() {
+        if (!newComment.trim() || !commentsPostId) {
+            toast.error("Please write a comment!");
+            return;
+        }
+
+        try {
+            await addComment({
+                postId: commentsPostId,
+                authorId: currentUser.uid,
+                authorName: userProfile?.displayName || currentUser.displayName || "Anonymous",
+                authorAvatar: userProfile?.photoURL || currentUser.photoURL,
+                content: newComment,
+            });
+
+            setNewComment("");
+            toast.success("Comment posted!");
+
+            // Reload comments
+            const fetchedComments = await getComments(commentsPostId);
+            setComments(fetchedComments);
+        } catch (error: any) {
+            toast.error(`Failed to post comment: ${error.message}`);
+        }
+    }
+
+    // ✅ Edit Comment
+    async function handleEditComment(comment: Comment) {
+        setEditingCommentId(comment.id || null);
+        setEditingCommentText(comment.content);
+    }
+
+    // ✅ Save Edited Comment
+    async function saveEditedComment() {
+        if (!editingCommentId || !editingCommentText.trim()) {
+            toast.error("Comment cannot be empty!");
+            return;
+        }
+
+        try {
+            await updateComment(editingCommentId, { content: editingCommentText });
+            setEditingCommentId(null);
+            setEditingCommentText("");
+            toast.success("Comment updated!");
+
+            // Reload comments
+            if (commentsPostId) {
+                const fetchedComments = await getComments(commentsPostId);
+                setComments(fetchedComments);
+            }
+        } catch (error: any) {
+            toast.error(`Failed to update comment: ${error.message}`);
+        }
+    }
+
+    // ✅ Cancel Edit Comment
+    function cancelEditComment() {
+        setEditingCommentId(null);
+        setEditingCommentText("");
+    }
+
+    // ✅ Delete Comment
+    async function handleDeleteComment(commentId: string) {
+        try {
+            await deleteComment(commentId);
+            toast.success("Comment deleted!");
+
+            // Reload comments
+            if (commentsPostId) {
+                const fetchedComments = await getComments(commentsPostId);
+                setComments(fetchedComments);
+            }
+        } catch (error: any) {
+            toast.error(`Failed to delete comment: ${error.message}`);
+        }
     }
 
     // ✅ Edit Post
@@ -618,6 +723,126 @@ export default function Feed() {
                             </div>
                         </AlertDialogContent>
                     </AlertDialog>
+
+                    {/* Comments Sheet */}
+                    <Sheet open={!!commentsPostId} onOpenChange={(open) => !open && setCommentsPostId(null)}>
+                        <SheetContent className="w-full sm:w-[400px] flex flex-col">
+                            <SheetHeader>
+                                <SheetTitle>Comments</SheetTitle>
+                            </SheetHeader>
+
+                            {/* Comments List */}
+                            <div className="flex-1 overflow-y-auto space-y-4 py-4">
+                                {loadingComments ? (
+                                    <div className="text-center text-muted-foreground">Loading comments...</div>
+                                ) : comments.length === 0 ? (
+                                    <div className="text-center text-muted-foreground text-sm">
+                                        No comments yet. Be the first to comment!
+                                    </div>
+                                ) : (
+                                    comments.map((comment) => (
+                                        <div key={comment.id} className="border-b pb-3">
+                                            {editingCommentId === comment.id ? (
+                                                <div>
+                                                    <Textarea
+                                                        value={editingCommentText}
+                                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                                        className="min-h-[60px] resize-none text-sm"
+                                                        placeholder="Edit comment..."
+                                                    />
+                                                    <div className="flex gap-2 mt-2">
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={saveEditedComment}
+                                                            className="bg-primary hover:bg-primary/90"
+                                                        >
+                                                            Save
+                                                        </Button>
+                                                        <Button size="sm" variant="outline" onClick={cancelEditComment}>
+                                                            Cancel
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-start gap-2 flex-1">
+                                                            <Avatar className="h-8 w-8">
+                                                                <AvatarImage src={comment.authorAvatar} />
+                                                                <AvatarFallback className="text-xs">
+                                                                    {comment.authorName?.charAt(0) || "U"}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1">
+                                                                <p className="font-semibold text-sm">{comment.authorName}</p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {comment.createdAt &&
+                                                                        formatDistanceToNow(comment.createdAt.toDate(), {
+                                                                            addSuffix: true,
+                                                                        })}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Comment Options Menu */}
+                                                        {currentUser.uid === comment.authorId && (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                                                        <MoreVertical className="h-3 w-3" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => handleEditComment(comment)}>
+                                                                        <Edit2 className="h-3 w-3 mr-2" />
+                                                                        Edit
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => handleDeleteComment(comment.id || "")}
+                                                                        className="text-red-600 focus:text-red-600"
+                                                                    >
+                                                                        <Trash2 className="h-3 w-3 mr-2" />
+                                                                        Delete
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm mt-2 ml-10">{comment.content}</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Comment Input */}
+                            <Separator className="my-2" />
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Write a comment..."
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    onKeyPress={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleAddComment();
+                                        }
+                                    }}
+                                    className="text-sm"
+                                />
+                                <Button
+                                    size="icon"
+                                    onClick={handleAddComment}
+                                    disabled={!newComment.trim()}
+                                    className="bg-primary hover:bg-primary/90"
+                                >
+                                    <Send className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </SheetContent>
+                    </Sheet>
                 </main>
             </div>
         </div>
