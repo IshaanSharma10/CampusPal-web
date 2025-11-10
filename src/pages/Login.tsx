@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { auth } from "../FirebaseConfig"; // ✅ import your Firebase instance
 import { createUserProfile } from "@/utils/createUserProfile"; // ✅ Firestore helper
+import logo from '../../public/logoweb.png'
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -74,7 +75,7 @@ export default function Login() {
         <div className="max-w-md text-white">
           <div className="flex items-center gap-3 mb-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur">
-              <span className="text-2xl font-bold">C</span>
+              <img src={logo} alt="Logo" />
             </div>
             <span className="text-2xl font-bold">CampusPal</span>
           </div>

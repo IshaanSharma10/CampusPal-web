@@ -10,21 +10,26 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, Upload } from "lucide-react";
 import { signOut, updateProfile } from "firebase/auth";
-import { auth, db, storage } from "@/FirebaseConfig";
+import { auth, db } from "@/FirebaseConfig";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "../SupabaseConfig";
 
 export default function Settings() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+
   const [userData, setUserData] = useState({
     name: "",
     major: "",
     email: "",
     photoURL: "",
   });
+
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const currentUser = auth.currentUser;
@@ -39,11 +44,12 @@ export default function Settings() {
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
+          const data = userSnap.data();
           setUserData({
-            name: userSnap.data().name || currentUser.displayName || "",
-            major: userSnap.data().major || "",
+            name: data.name || currentUser.displayName || "",
+            major: data.major || "",
             email: currentUser.email || "",
-            photoURL: userSnap.data().photoURL || currentUser.photoURL || "",
+            photoURL: data.profilePic || data.photoURL || currentUser.photoURL || "",
           });
         } else {
           setUserData({
@@ -55,60 +61,116 @@ export default function Settings() {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
+        toast({
+          title: "Error loading profile",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [navigate]);
+  }, [navigate, toast]);
 
+  // ✅ Logout handler
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/");
   };
 
+  // ✅ Save Profile Info (non-image fields)
   const handleSave = async () => {
     try {
-      const userRef = doc(db, "users", auth.currentUser.uid);
-      await setDoc(userRef, {
-        name: userData.name,
-        major: userData.major,
-        email: userData.email,
-        photoURL: userData.photoURL,
-      });
-      alert("✅ Profile updated successfully!");
-    } catch (error) {
-      console.error("Error saving user data:", error);
-    }
-  };
-
-  // ✅ Upload Image Function
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !auth.currentUser) return;
-
-    try {
-      setUploading(true);
-      const storageRef = ref(storage, `profilePhotos/${auth.currentUser.uid}`);
-      await uploadBytes(storageRef, file);
-
-      const downloadURL = await getDownloadURL(storageRef);
-
-      // Update both Auth and Firestore
-      await updateProfile(auth.currentUser, { photoURL: downloadURL });
-      const userRef = doc(db, "users", auth.currentUser.uid);
+      const userRef = doc(db, "users", auth.currentUser!.uid);
       await setDoc(
         userRef,
-        { photoURL: downloadURL },
+        {
+          name: userData.name,
+          major: userData.major,
+          email: userData.email,
+          profilePic: userData.photoURL,
+        },
         { merge: true }
       );
 
-      setUserData((prev) => ({ ...prev, photoURL: downloadURL }));
-      alert("✅ Profile photo updated!");
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: userData.name,
+          photoURL: userData.photoURL,
+        });
+      }
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile changes have been saved.",
+      });
+    } catch (error) {
+      console.error("Error saving user data:", error);
+      toast({
+        title: "Error updating profile",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ✅ Upload Photo to Supabase
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const currentUser = auth.currentUser;
+    if (!file || !currentUser) return;
+
+    try {
+      setUploading(true);
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${currentUser.uid}_${Date.now()}.${fileExt}`;
+      const filePath = `profile-pics/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("USER_PROFILE") // ✅ Change to "user_profile" if lowercase bucket
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        console.error("Supabase upload error:", uploadError.message);
+        toast({
+          title: "Upload failed",
+          description: "Could not upload image. Try again.",
+          variant: "destructive",
+        });
+        setUploading(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from("USER_PROFILE")
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData.publicUrl;
+
+      // Update Auth + Firestore
+      await updateProfile(currentUser, { photoURL: publicUrl });
+      const userRef = doc(db, "users", currentUser.uid);
+      await setDoc(userRef, { profilePic: publicUrl }, { merge: true });
+
+      setUserData((prev) => ({ ...prev, photoURL: publicUrl }));
+      setPreviewUrl(null);
+
+      toast({
+        title: "Profile photo updated!",
+        description: "Your new photo has been saved successfully.",
+      });
     } catch (error) {
       console.error("Error uploading photo:", error);
-      alert("❌ Failed to upload photo");
+      toast({
+        title: "Error uploading photo",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
     }
@@ -154,13 +216,14 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20">
                       <AvatarImage
-                        src={userData.photoURL || "/placeholder.svg"}
+                        src={previewUrl || userData.photoURL || "/placeholder.svg"}
                         alt={userData.name}
                       />
                       <AvatarFallback className="text-lg">
                         {userData.name?.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
+
                     <label
                       htmlFor="fileUpload"
                       className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full cursor-pointer hover:bg-primary/90 transition"
@@ -222,21 +285,11 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={userData.email}
-                      disabled
-                    />
+                    <Input id="email" type="email" value={userData.email} disabled />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value="********"
-                      disabled
-                    />
+                    <Input id="password" type="password" value="********" disabled />
                   </div>
                 </div>
               </Card>
@@ -254,10 +307,7 @@ export default function Settings() {
                   <Button variant="outline" className="flex-1 sm:flex-none">
                     Cancel
                   </Button>
-                  <Button
-                    className="flex-1 sm:flex-none"
-                    onClick={handleSave}
-                  >
+                  <Button className="flex-1 sm:flex-none" onClick={handleSave}>
                     Save Changes
                   </Button>
                 </div>
