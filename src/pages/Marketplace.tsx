@@ -194,7 +194,6 @@ export default function Marketplace() {
             }
 
             const sellerName =
-                profile?.name ??
                 profile?.displayName ??
                 currentUser.displayName ??
                 currentUser.email?.split("@")[0] ??

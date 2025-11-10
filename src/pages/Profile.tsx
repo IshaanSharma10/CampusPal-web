@@ -19,7 +19,7 @@ import { formatDistanceToNow } from "date-fns";
 import { supabase } from "../SupabaseConfig";
 
 interface UserProfile {
-  name: string;
+  displayName: string;
   username?: string;
   email?: string;
   bio?: string;
@@ -59,7 +59,7 @@ export default function Profile() {
           setUserData(docSnap.data() as UserProfile);
         } else {
           const defaultData: UserProfile = {
-            name: user.displayName || "New User",
+            displayName: user.displayName || "New User",
             username: user.email?.split("@")[0],
             email: user.email || "",
             bio: "",
@@ -264,9 +264,9 @@ export default function Profile() {
                   <div className="flex flex-col items-center text-center mb-6 relative">
                     <div className="relative">
                       <Avatar className="h-32 w-32 mb-4 border-4 border-primary/20">
-                        <AvatarImage src={previewUrl || userData.profilePic || ""} alt={userData.name} />
+                        <AvatarImage src={previewUrl || userData.profilePic || ""} alt={userData.displayName} />
                         <AvatarFallback className="text-3xl">
-                          {userData.name?.charAt(0) || "U"}
+                          {userData.displayName?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
 
@@ -289,7 +289,7 @@ export default function Profile() {
                       )}
                     </div>
 
-                    <h1 className="text-2xl font-bold mb-1">{userData.name}</h1>
+                    <h1 className="text-2xl font-bold mb-1">{userData.displayName}</h1>
                     <p className="text-sm text-primary">@{userData.username}</p>
                   </div>
 
@@ -418,13 +418,13 @@ export default function Profile() {
                             <div className="flex items-start gap-3 mb-3">
                               <Avatar>
                                 <AvatarImage
-                                  src={userData.profilePic || post.authorAvatar}
-                                  alt={userData.name}
+                                src={userData.profilePic || post.authorAvatar}
+                                alt={userData.displayName}
                                 />
-                                <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
+                                <AvatarFallback>{userData.displayName?.charAt(0)}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
-                                <h4 className="font-semibold text-sm">{userData.name}</h4>
+                                <h4 className="font-semibold text-sm">{userData.displayName}</h4>
                                 <p className="text-xs text-muted-foreground">
                                   {post.createdAt
                                     ? formatDistanceToNow(
@@ -486,15 +486,15 @@ export default function Profile() {
                               <Avatar>
                                 <AvatarImage
                                   src={user.profilePic || user.photoURL || ""}
-                                  alt={user.name}
+                                  alt={user.displayName}
                                 />
                                 <AvatarFallback>
-                                  {user.name?.split(" ").map((n) => n[0]).join("") || "U"}
+                                  {user.displayName?.split(" ").map((n) => n[0]).join("") || "U"}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm truncate">
-                                  {user.name}
+                                  {user.displayName}
                                 </h4>
                                 <p className="text-xs text-muted-foreground truncate">
                                   {user.department || "No department"}

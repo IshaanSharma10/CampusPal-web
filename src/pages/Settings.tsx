@@ -21,7 +21,7 @@ export default function Settings() {
   const { toast } = useToast();
 
   const [userData, setUserData] = useState({
-    name: "",
+    displayName: "",
     major: "",
     email: "",
     photoURL: "",
@@ -46,14 +46,14 @@ export default function Settings() {
         if (userSnap.exists()) {
           const data = userSnap.data();
           setUserData({
-            name: data.name || currentUser.displayName || "",
+            displayName: data.displayName || currentUser.displayName || "",
             major: data.major || "",
             email: currentUser.email || "",
             photoURL: data.profilePic || data.photoURL || currentUser.photoURL || "",
           });
         } else {
           setUserData({
-            name: currentUser.displayName || "",
+            displayName: currentUser.displayName || "",
             major: "",
             email: currentUser.email || "",
             photoURL: currentUser.photoURL || "",
@@ -87,7 +87,7 @@ export default function Settings() {
       await setDoc(
         userRef,
         {
-          name: userData.name,
+          displayName: userData.displayName,
           major: userData.major,
           email: userData.email,
           profilePic: userData.photoURL,
@@ -97,7 +97,7 @@ export default function Settings() {
 
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
-          displayName: userData.name,
+          displayName: userData.displayName,
           photoURL: userData.photoURL,
         });
       }
@@ -217,10 +217,10 @@ export default function Settings() {
                     <Avatar className="h-20 w-20">
                       <AvatarImage
                         src={previewUrl || userData.photoURL || "/placeholder.svg"}
-                        alt={userData.name}
+                        alt={userData.displayName}
                       />
                       <AvatarFallback className="text-lg">
-                        {userData.name?.charAt(0).toUpperCase()}
+                        {userData.displayName?.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
@@ -240,7 +240,7 @@ export default function Settings() {
                   </div>
 
                   <div className="flex-1 text-center sm:text-left">
-                    <h4 className="font-semibold">{userData.name}</h4>
+                    <h4 className="font-semibold">{userData.displayName}</h4>
                     <p className="text-sm text-muted-foreground">
                       {userData.major || "Not specified"}
                     </p>
@@ -260,9 +260,9 @@ export default function Settings() {
                     <Label htmlFor="fullname">Full Name</Label>
                     <Input
                       id="fullname"
-                      value={userData.name}
+                      value={userData.displayName}
                       onChange={(e) =>
-                        setUserData({ ...userData, name: e.target.value })
+                        setUserData({ ...userData, displayName: e.target.value })
                       }
                     />
                   </div>
