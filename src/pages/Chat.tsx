@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Check,
   X,
+  Menu,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -60,6 +61,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 export default function Chat() {
   const { currentUser, userProfile } = useAuth();
@@ -80,6 +88,7 @@ export default function Chat() {
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Real-time listener for chats
   useEffect(() => {
@@ -360,6 +369,253 @@ export default function Chat() {
     );
   }
 
+  // Chat Sidebar Content Component
+  const ChatSidebarContent = () => (
+    <>
+      <div className="p-4 border-b border-border">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chats" | "friends")}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="chats">Chats</TabsTrigger>
+            <TabsTrigger value="friends">Friends</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {activeTab === "chats" && (
+        <>
+          <div className="p-4 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search chats..."
+                className="pl-10 bg-muted/50"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-center text-muted-foreground">Loading chats...</div>
+            ) : chats.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">No chats yet</div>
+            ) : (
+              chats.map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => {
+                    setSelectedChat(chat);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={`w-full p-4 flex items-start gap-3 transition-smooth border-b border-border ${
+                    selectedChat?.id === chat.id ? "bg-muted/50" : "hover:bg-muted/20"
+                  }`}
+                >
+                  <Avatar>
+                    <AvatarImage src={chat.avatar || "/placeholder.svg"} />
+                    <AvatarFallback>
+                      {chat.type === "group" ? "G" : chat.participantDetails?.find(p => p.id !== currentUser.uid)?.name?.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-semibold text-sm truncate">
+                        {chat.type === "group"
+                          ? chat.name
+                          : chat.participantDetails?.find(p => p.id !== currentUser.uid)?.name || "Unknown"}
+                      </h4>
+                      <span className="text-xs text-muted-foreground">
+                        {chat.lastMessage?.timestamp && formatDistanceToNow(chat.lastMessage.timestamp.toDate(), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {chat.lastMessage ? `${chat.lastMessage.senderName}: ${chat.lastMessage.text}` : "No messages yet"}
+                    </p>
+                  </div>
+                  {chat.unreadCount?.[currentUser.uid] > 0 && (
+                    <Badge className="bg-primary text-primary-foreground h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs">
+                      {chat.unreadCount[currentUser.uid]}
+                    </Badge>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+
+          <div className="p-4 border-t border-border space-y-2">
+            <Dialog open={newChatDialog} onOpenChange={setNewChatDialog}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  New Chat
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Start a new chat</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {friends.length === 0 ? (
+                    <p className="text-muted-foreground">No friends to chat with. Add some friends first!</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {friends.map((friend) => (
+                        <Button
+                          key={friend.id}
+                          variant="ghost"
+                          className="w-full justify-start gap-3"
+                          onClick={() => handleStartDirectChat(friend.id)}
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={friend.avatar} />
+                            <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span>{friend.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={newGroupDialog} onOpenChange={setNewGroupDialog}>
+              <DialogTrigger asChild>
+                <Button className="w-full gap-2">
+                  <Users className="h-4 w-4" />
+                  New Group
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a group chat</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input
+                    placeholder="Group name"
+                    value={groupName}
+                    onChange={(e) => setGroupName(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Group description (optional)"
+                    value={groupDescription}
+                    onChange={(e) => setGroupDescription(e.target.value)}
+                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Select members</label>
+                    {friends.map((friend) => (
+                      <div key={friend.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedFriends.includes(friend.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedFriends([...selectedFriends, friend.id]);
+                            } else {
+                              setSelectedFriends(selectedFriends.filter(id => id !== friend.id));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={friend.avatar} />
+                          <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{friend.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleCreateGroupChat}
+                    disabled={!groupName.trim() || selectedFriends.length === 0}
+                  >
+                    Create Group
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </>
+      )}
+
+      {activeTab === "friends" && (
+        <>
+          <div className="flex-1 overflow-y-auto">
+            {friendRequests.length > 0 && (
+              <div className="border-b border-border">
+                <div className="p-4 bg-muted/50">
+                  <h3 className="font-semibold text-sm mb-3">Friend Requests</h3>
+                  <div className="space-y-2">
+                    {friendRequests.map((request) => (
+                      <div key={request.id} className="bg-card p-3 rounded-lg flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={request.senderAvatar} />
+                            <AvatarFallback>{request.senderName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium truncate">{request.senderName}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-7 px-2"
+                            onClick={() => handleAcceptFriendRequest(request.id)}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => handleDeclineFriendRequest(request.id)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="p-4">
+              <h3 className="font-semibold text-sm mb-3">All Friends ({friends.length})</h3>
+              {friends.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No friends yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {friends.map((friend) => (
+                    <button
+                      key={friend.id}
+                      onClick={() => handleStartDirectChat(friend.id)}
+                      className="w-full p-2 flex items-center gap-3 hover:bg-muted/50 rounded-lg transition-smooth"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={friend.avatar} />
+                        <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-sm">{friend.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-border">
+            <Button variant="outline" className="w-full gap-2">
+              <UserPlus className="h-4 w-4" />
+              Add Friend
+            </Button>
+          </div>
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
@@ -369,290 +625,31 @@ export default function Chat() {
         <Header />
 
         <main className="flex-1 flex overflow-hidden pb-16 lg:pb-0">
-          {/* Chat Sidebar */}
+          {/* Desktop Sidebar */}
           <div className="hidden md:flex md:w-80 border-r border-border bg-card flex-col">
-            <div className="p-4 border-b border-border">
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "chats" | "friends")}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="chats">Chats</TabsTrigger>
-                  <TabsTrigger value="friends">Friends</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-
-            {activeTab === "chats" && (
-              <>
-                <div className="p-4 border-b border-border">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search chats..."
-                      className="pl-10 bg-muted/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto">
-                  {loading ? (
-                    <div className="p-4 text-center text-muted-foreground">Loading chats...</div>
-                  ) : chats.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">No chats yet</div>
-                  ) : (
-                    chats.map((chat) => (
-                      <button
-                        key={chat.id}
-                        onClick={() => setSelectedChat(chat)}
-                        className={`w-full p-4 flex items-start gap-3 transition-smooth border-b border-border ${
-                          selectedChat?.id === chat.id ? "bg-muted/50" : "hover:bg-muted/20"
-                        }`}
-                      >
-                        <Avatar>
-                          <AvatarImage src={chat.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>
-                            {chat.type === "group" ? "G" : chat.participantDetails?.find(p => p.id !== currentUser.uid)?.name?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0 text-left">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold text-sm truncate">
-                              {chat.type === "group"
-                                ? chat.name
-                                : chat.participantDetails?.find(p => p.id !== currentUser.uid)?.name || "Unknown"}
-                            </h4>
-                            <span className="text-xs text-muted-foreground">
-                              {chat.lastMessage?.timestamp && formatDistanceToNow(chat.lastMessage.timestamp.toDate(), { addSuffix: true })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {chat.lastMessage ? `${chat.lastMessage.senderName}: ${chat.lastMessage.text}` : "No messages yet"}
-                          </p>
-                        </div>
-                        {chat.unreadCount?.[currentUser.uid] > 0 && (
-                          <Badge className="bg-primary text-primary-foreground h-5 min-w-[20px] flex items-center justify-center rounded-full text-xs">
-                            {chat.unreadCount[currentUser.uid]}
-                          </Badge>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-
-                <div className="p-4 border-t border-border space-y-2">
-                  <Dialog open={newChatDialog} onOpenChange={setNewChatDialog}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        New Chat
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Start a new chat</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        {friends.length === 0 ? (
-                          <p className="text-muted-foreground">No friends to chat with. Add some friends first!</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {friends.map((friend) => (
-                              <Button
-                                key={friend.id}
-                                variant="ghost"
-                                className="w-full justify-start gap-3"
-                                onClick={() => handleStartDirectChat(friend.id)}
-                              >
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={friend.avatar} />
-                                  <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span>{friend.name}</span>
-                              </Button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={newGroupDialog} onOpenChange={setNewGroupDialog}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full gap-2">
-                        <Users className="h-4 w-4" />
-                        New Group
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create a group chat</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <Input
-                          placeholder="Group name"
-                          value={groupName}
-                          onChange={(e) => setGroupName(e.target.value)}
-                        />
-                        <Input
-                          placeholder="Group description (optional)"
-                          value={groupDescription}
-                          onChange={(e) => setGroupDescription(e.target.value)}
-                        />
-                        <div>
-                          <h4 className="font-medium mb-2">Select friends to add:</h4>
-                          <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {friends.map((friend) => (
-                              <Button
-                                key={friend.id}
-                                variant={selectedFriends.includes(friend.id) ? "default" : "ghost"}
-                                size="sm"
-                                className="w-full justify-start gap-3"
-                                onClick={() => {
-                                  setSelectedFriends(prev =>
-                                    prev.includes(friend.id)
-                                      ? prev.filter(id => id !== friend.id)
-                                      : [...prev, friend.id]
-                                  );
-                                }}
-                              >
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={friend.avatar} />
-                                  <AvatarFallback className="text-xs">{friend.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{friend.name}</span>
-                                {selectedFriends.includes(friend.id) && <Check className="h-4 w-4 ml-auto" />}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        <Button
-                          onClick={handleCreateGroupChat}
-                          disabled={!groupName.trim() || selectedFriends.length === 0}
-                          className="w-full"
-                        >
-                          Create Group
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Add Members Dialog */}
-                  <Dialog open={addMembersDialog} onOpenChange={setAddMembersDialog}>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Members to Group</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="font-medium mb-2">Select friends to add:</h4>
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
-                            {friends.filter(friend => 
-                              !selectedChat?.participants.includes(friend.id)
-                            ).map((friend) => (
-                              <Button
-                                key={friend.id}
-                                variant={selectedFriends.includes(friend.id) ? "default" : "ghost"}
-                                size="sm"
-                                className="w-full justify-start gap-3"
-                                onClick={() => {
-                                  setSelectedFriends(prev =>
-                                    prev.includes(friend.id)
-                                      ? prev.filter(id => id !== friend.id)
-                                      : [...prev, friend.id]
-                                  );
-                                }}
-                              >
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={friend.avatar} />
-                                  <AvatarFallback className="text-xs">{friend.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{friend.name}</span>
-                                {selectedFriends.includes(friend.id) && <Check className="h-4 w-4 ml-auto" />}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                        <Button
-                          onClick={handleAddMembers}
-                          disabled={selectedFriends.length === 0}
-                          className="w-full"
-                        >
-                          Add {selectedFriends.length} Member{selectedFriends.length !== 1 ? 's' : ''}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </>
-            )}
-
-            {activeTab === "friends" && (
-              <>
-                <div className="p-4 border-b border-border">
-                  <h3 className="font-semibold">Friends ({friends.length})</h3>
-                </div>
-
-                <div className="flex-1 overflow-y-auto">
-                  {loading ? (
-                    <div className="p-4 text-center text-muted-foreground">Loading friends...</div>
-                  ) : friends.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">No friends yet</div>
-                  ) : (
-                    friends.map((friend) => (
-                      <div key={friend.id} className="p-4 flex items-center justify-between border-b border-border">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarImage src={friend.avatar} />
-                            <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium">{friend.name}</span>
-                        </div>
-                        <Button size="sm" onClick={() => handleStartDirectChat(friend.id)}>
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  )}
-
-                  {friendRequests.length > 0 && (
-                    <>
-                      <div className="p-4 border-t border-border">
-                        <h4 className="font-semibold text-sm">Friend Requests ({friendRequests.length})</h4>
-                      </div>
-                      {friendRequests.map((request) => (
-                        <div key={request.id} className="p-4 flex items-center justify-between border-b border-border">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarImage src={request.senderAvatar} />
-                              <AvatarFallback>{request.senderName.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <span className="font-medium">{request.senderName}</span>
-                              <p className="text-xs text-muted-foreground">Sent you a friend request</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleAcceptFriendRequest(request.id!)}>
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDeclineFriendRequest(request.id!)}>
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-
-                <div className="p-4 border-t border-border">
-                  <Button variant="outline" className="w-full gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    Find Friends
-                  </Button>
-                </div>
-              </>
-            )}
+            <ChatSidebarContent />
           </div>
+
+          {/* Mobile Sheet Sidebar */}
+          <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="md:hidden fixed top-20 left-4 z-50 h-10 w-10 rounded-full shadow-lg"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80 p-0">
+              <SheetHeader className="p-4 border-b">
+                <SheetTitle>Chats & Friends</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col h-[calc(100%-5rem)]">
+                <ChatSidebarContent />
+              </div>
+            </SheetContent>
+          </Sheet>
 
           {/* Chat Main */}
           <div className="flex-1 flex flex-col bg-background">
@@ -660,7 +657,7 @@ export default function Chat() {
               <>
                 {/* Chat Header */}
                 <div className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 bg-card">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar>
                       <AvatarImage src={selectedChat.avatar || "/placeholder.svg"} />
                       <AvatarFallback>
@@ -820,11 +817,19 @@ export default function Chat() {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center p-4">
                 <div className="text-center">
                   <MessageCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h2 className="text-2xl font-bold mb-2">Select a chat</h2>
-                  <p className="text-muted-foreground">Choose a conversation from the sidebar to start messaging.</p>
+                  <h2 className="text-xl sm:text-2xl font-bold mb-2">Select a chat</h2>
+                  <p className="text-muted-foreground text-sm sm:text-base mb-4">
+                    Choose a conversation to start messaging
+                  </p>
+                  <Button
+                    className="md:hidden"
+                    onClick={() => setMobileDrawerOpen(true)}
+                  >
+                    View Chats
+                  </Button>
                 </div>
               </div>
             )}
