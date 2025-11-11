@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import { initializeClubsIfNeeded } from "./lib/initializeClubs";
 
 // Lazy load pages for faster initial load
 const Index = lazy(() => import("./pages/Index"));
@@ -36,7 +37,13 @@ const LoadingFallback = () => (
   </div>
 );
 
-const App = () => (
+const AppContent = () => {
+  useEffect(() => {
+    // Initialize clubs if they don't exist
+    initializeClubsIfNeeded();
+  }, []);
+
+  return (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <AuthProvider>
@@ -73,9 +80,14 @@ const App = () => (
             </Routes>
           </Suspense>
         </TooltipProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+        </AuthProvider>
+        </BrowserRouter>
+        </QueryClientProvider>
+        );
+        };
 
-export default App;
+        const App = () => (
+        <AppContent />
+        );
+
+        export default App;

@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ArrowLeft, Instagram } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Search,
+  ArrowLeft,
+  Instagram,
+  Users,
+  MessageCircle,
+  Image as ImageIcon,
+  X,
+  Star,
+} from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -17,100 +27,109 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-const allClubs = [
-  { id: 1, name: "FROSH", description: "Freshers society organizing fun campus events.", members: 120 },
-  { id: 2, name: "FAPS", description: "Fine arts, photography, and performing society.", members: 98 },
-  { id: 3, name: "GDSC", description: "Google Developer Student Club - Learn, Build, Grow.", members: 340 },
-  { id: 4, name: "TVC", description: "The Visual Club - film and content creators community.", members: 210 },
-  { id: 5, name: "ENACTUS", description: "Entrepreneurial action for social impact.", members: 180 },
-  { id: 6, name: "ECHOES", description: "Music and performing arts society.", members: 230 },
-  { id: 7, name: "GENE", description: "Gender equality and empowerment network.", members: 150 },
-  { id: 8, name: "ECON", description: "Economics enthusiasts and analysts’ society.", members: 120 },
-  { id: 9, name: "CCS", description: "Coding & Computer Science Society.", members: 270 },
-  { id: 10, name: "TAAS", description: "Tech and applied analytics society.", members: 190 },
-  { id: 11, name: "TNT", description: "Theatre and dramatics club.", members: 250 },
-  { id: 12, name: "TICC", description: "Tech Innovation and Creativity Club.", members: 175 },
-  { id: 13, name: "FATEH", description: "Fitness and adventure enthusiasts club.", members: 132 },
-  { id: 14, name: "VIRSA", description: "Cultural and heritage preservation club.", members: 205 },
-  { id: 15, name: "IETE", description: "Electronics and Telecommunication Engineers club.", members: 180 },
-  { id: 16, name: "TAC", description: "The Art Circle.", members: 120 },
-  { id: 17, name: "TEDX", description: "TEDx Talks organizing team.", members: 300 },
-  { id: 18, name: "PRATIGYA", description: "Social service and volunteering club.", members: 260 },
-  { id: 19, name: "TMC", description: "The Music Circle.", members: 200 },
-  { id: 20, name: "ACM", description: "Association for Computing Machinery.", members: 275 },
-  { id: 21, name: "LITSOC", description: "Literary Society.", members: 220 },
-  { id: 22, name: "BIS", description: "Business and Investment Society.", members: 195 },
-  { id: 23, name: "IEI", description: "Institution of Engineers India.", members: 180 },
-  { id: 24, name: "CTD", description: "Creative design and thinking club.", members: 130 },
-  { id: 25, name: "TFC", description: "The Film Club.", members: 150 },
-  { id: 26, name: "PWS", description: "Public welfare society.", members: 175 },
-  { id: 27, name: "LEAD", description: "Leadership development club.", members: 160 },
-  { id: 28, name: "NMSC", description: "National Management Students Club.", members: 145 },
-  { id: 29, name: "TNS", description: "Tech Networking Society.", members: 200 },
-  { id: 30, name: "NSS", description: "National Service Scheme.", members: 280 },
-  { id: 31, name: "MUDRA", description: "Finance and Economics Club.", members: 230 },
-  { id: 32, name: "SAIC", description: "Social Awareness & Innovation Club.", members: 175 },
-  { id: 33, name: "IICHE", description: "Indian Institute of Chemical Engineers.", members: 150 },
-  { id: 34, name: "TM", description: "Toastmasters Club.", members: 200 },
-  { id: 35, name: "GIRL UP", description: "Women empowerment initiative.", members: 250 },
-  { id: 36, name: "NOX", description: "Nightlife and events management club.", members: 160 },
-  { id: 37, name: "SPICMACAY", description: "Indian classical music & culture club.", members: 220 },
-  { id: 38, name: "ISTE", description: "Indian Society for Technical Education.", members: 190 },
-  { id: 39, name: "OWASP", description: "Cybersecurity awareness group.", members: 210 },
-  { id: 40, name: "TCSE", description: "Tech & Coding Society of Engineers.", members: 180 },
-  { id: 41, name: "OORJA", description: "Energy and environmental awareness club.", members: 150 },
-  { id: 42, name: "TMUN", description: "Model United Nations club.", members: 240 },
-  { id: 43, name: "LUG", description: "Linux Users Group.", members: 170 },
-  { id: 44, name: "AISEC", description: "Global youth leadership organization.", members: 300 },
-  { id: 45, name: "YOUTH UNITED", description: "Student unity and welfare club.", members: 260 },
-  { id: 46, name: "MARKFIN", description: "Marketing and Finance Club.", members: 230 },
-  { id: 47, name: "ARC", description: "Architecture and design club.", members: 190 },
-  { id: 48, name: "ROTARACT", description: "Community service and leadership club.", members: 275 },
-  { id: 49, name: "SIS", description: "Social Impact Society.", members: 185 },
-  { id: 50, name: "MARS", description: "Robotics and Space research club.", members: 290 },
-];
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useClubs, ClubPost } from "@/hooks/useClubs";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Clubs() {
-  const [myCommunities, setMyCommunities] = useState([{ name: "Discover", icon: "🔍" }]);
-  const [joinedClubs, setJoinedClubs] = useState<string[]>([]);
-  const [activeChatClub, setActiveChatClub] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<Record<string, string[]>>({});
-  const [message, setMessage] = useState("");
-  const [selectedClub, setSelectedClub] = useState<any>(null);
+  const { clubs, joinedClubs, loading, joinClub, leaveClub, getClubPosts, postToClub } = useClubs();
+  const { currentUser } = useAuth();
+
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [clubPosts, setClubPosts] = useState<ClubPost[]>([]);
+  const [postContent, setPostContent] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [confirmLeaveClub, setConfirmLeaveClub] = useState<string | null>(null);
+  const [aboutClub, setAboutClub] = useState<any>(null);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleJoin = (clubName: string) => {
-    if (!joinedClubs.includes(clubName)) {
-      setJoinedClubs([...joinedClubs, clubName]);
-      setMyCommunities((prev) => [...prev, { name: clubName, icon: "💬" }]);
+  const categories = ["Tech", "Academic", "Arts", "Social", "Sports", "Entrepreneurship", "Cultural"];
+
+  // Load posts when club is selected
+  useEffect(() => {
+    if (selectedClubId) {
+      setLoadingPosts(true);
+      getClubPosts(selectedClubId).then((posts) => {
+        setClubPosts(posts);
+        setLoadingPosts(false);
+      });
+    }
+  }, [selectedClubId]);
+
+  const handleJoin = async (clubId: string, clubName: string) => {
+    if (!currentUser) {
+      toast.error("Please log in to join clubs");
+      return;
+    }
+    await joinClub(clubId, clubName);
+  };
+
+  const handleLeave = async (clubId: string, clubName: string) => {
+    await leaveClub(clubId, clubName);
+    setConfirmLeaveClub(null);
+    if (selectedClubId === clubId) {
+      setSelectedClubId(null);
     }
   };
 
-  const handleLeave = (clubName: string) => {
-    setJoinedClubs(joinedClubs.filter((c) => c !== clubName));
-    setMyCommunities(myCommunities.filter((c) => c.name !== clubName));
-    if (activeChatClub === clubName) setActiveChatClub(null);
-  };
-
-  const handleSendMessage = () => {
-    if (message.trim() && activeChatClub) {
-      setChatMessages((prev) => ({
-        ...prev,
-        [activeChatClub]: [...(prev[activeChatClub] || []), message],
-      }));
-      setMessage("");
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSendMessage();
+  const handlePostToClub = async () => {
+    if (!selectedClubId || !postContent.trim()) {
+      toast.error("Please write a message");
+      return;
     }
+    await postToClub(selectedClubId, postContent, selectedImage || undefined);
+    setPostContent("");
+    setSelectedImage(null);
+    setImagePreview("");
+    // Refresh posts
+    const posts = await getClubPosts(selectedClubId);
+    setClubPosts(posts);
   };
 
-  const topClubs = [...allClubs].sort((a, b) => b.members - a.members).slice(0, 5);
+  const selectedClub = clubs.find((c) => c.id === selectedClubId);
+  const userJoinedClubs = clubs.filter((club) => joinedClubs.includes(club.id));
+  
+  const filteredClubs = clubs.filter((club) => {
+    const matchSearch =
+      club.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      club.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchCategory = selectedCategory === "all" || club.category === selectedCategory;
+    return matchSearch && matchCategory;
+  });
+
+  const topClubs = [...clubs].sort((a, b) => b.memberCount - a.memberCount).slice(0, 5);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-full bg-background">
+        <Sidebar />
+        <MobileNav />
+        <div className="lg:ml-64 flex-1 flex flex-col">
+          <Header />
+          <main className="flex-1 p-4 sm:p-6 flex items-center justify-center">
+            <p className="text-muted-foreground">Loading clubs...</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -119,166 +138,350 @@ export default function Clubs() {
       <div className="lg:ml-64 flex-1 flex flex-col">
         <Header />
         <main className="flex-1 p-4 sm:p-6 pb-20 lg:pb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
-            {/* Left Sidebar */}
-            <Card className="p-4 sm:p-6 h-fit shadow-soft order-2 lg:order-1">
-              <h3 className="font-bold text-sm mb-4 text-muted-foreground">MY COMMUNITIES</h3>
+          {!selectedClubId ? (
+            <div className="space-y-6">
+              {/* Header Section */}
               <div className="space-y-2">
-                {myCommunities.map((community, index) => (
-                  <div key={community.name} className="flex justify-between items-center">
-                    <Button
-                      variant={index === 0 ? "default" : "ghost"}
-                      className="w-full justify-start gap-3"
-                      onClick={() => index !== 0 && setActiveChatClub(community.name)}
-                    >
-                      <span className="text-lg">{community.icon}</span>
-                      <span className="text-sm">{community.name}</span>
-                    </Button>
-                    {index !== 0 && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setConfirmLeaveClub(community.name)}
-                      >
-                        Leave
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                <h1 className="text-3xl sm:text-4xl font-bold">Campus Communities</h1>
+                <p className="text-muted-foreground">Join clubs, connect with students, and grow together</p>
               </div>
-            </Card>
 
-            {/* Middle Section */}
-            <div className="lg:col-span-3 order-1 lg:order-2 flex flex-col h-full">
-              {!activeChatClub ? (
-                <>
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">Explore Campus Communities</h1>
-                  <div className="relative mt-4">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input type="search" placeholder="Find your community..." className="pl-10 bg-muted/50" />
-                  </div>
-
-                  <Tabs defaultValue="all" className="w-full mt-4">
-                    <TabsList>
-                      <TabsTrigger value="all">All</TabsTrigger>
-                      <TabsTrigger value="academic">Academic</TabsTrigger>
-                      <TabsTrigger value="arts">Arts & Culture</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-
-                  {/* Grid view for clubs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 overflow-y-auto">
-                    {allClubs.map((club) => (
-                      <Card key={club.id} className="overflow-hidden hover:shadow-md transition">
-                        <div className="flex flex-col sm:flex-row justify-between items-center">
-                          <div className="p-4 flex-1">
-                            <h3 className="font-bold mb-1">{club.name}</h3>
-                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                              {club.description}
+              {/* My Clubs Quick Access */}
+              {userJoinedClubs.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-lg font-semibold">Your Clubs</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {userJoinedClubs.map((club) => (
+                      <Card
+                        key={club.id}
+                        className="p-4 cursor-pointer hover:shadow-lg transition-all border-2 border-primary/20 hover:border-primary"
+                        onClick={() => setSelectedClubId(club.id)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-bold text-sm">{club.name}</h3>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <Users className="h-3 w-3" />
+                              {club.memberCount} members
                             </p>
-                            <p className="text-xs text-muted-foreground">{club.members} Members</p>
                           </div>
-                          <div className="p-4 flex items-center gap-2">
+                          <span className="text-lg">💬</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          {club.description}
+                        </p>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClubId(club.id);
+                          }}
+                        >
+                          View Feed
+                        </Button>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search & Filter */}
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search clubs by name or topic..."
+                    className="pl-10 bg-muted/50"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                <Tabs defaultValue="all" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+                    <TabsTrigger value="all" onClick={() => setSelectedCategory("all")}>
+                      All
+                    </TabsTrigger>
+                    {categories.map((cat) => (
+                      <TabsTrigger key={cat} value={cat} onClick={() => setSelectedCategory(cat)}>
+                        {cat.slice(0, 3)}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              {/* Top Clubs Section */}
+              <div className="space-y-3">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Star className="h-5 w-5 text-blue-500" />
+                  ⭐ Top Clubs
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                  {topClubs.map((club) => (
+                    <Card
+                      key={club.id}
+                      className="p-4 border-2 border-blue-200 dark:border-blue-800"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="font-bold text-sm">{club.name}</h3>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Users className="h-3 w-3" />
+                            {club.memberCount} members
+                          </p>
+                        </div>
+                        <Star className="h-4 w-4 text-blue-500" />
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {club.description}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* All Clubs Grid */}
+              <div className="space-y-3">
+                <h2 className="text-lg font-semibold">
+                  {searchTerm || selectedCategory !== "all"
+                    ? `Search Results (${filteredClubs.length})`
+                    : "All Clubs"}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredClubs.map((club) => (
+                    <Card key={club.id} className="overflow-hidden hover:shadow-lg transition flex flex-col">
+                      <div className="p-4 flex-1 flex flex-col">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-lg">{club.name}</h3>
+                          {joinedClubs.includes(club.id) && (
+                            <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 px-2 py-1 rounded-full">
+                              Joined
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2 flex-1">
+                          {club.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            {club.memberCount} members
+                          </div>
+                          {club.category && (
+                            <span className="bg-muted px-2 py-1 rounded text-xs">{club.category}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="border-t p-4 flex gap-2">
+                        {joinedClubs.includes(club.id) ? (
+                          <>
                             <Button
                               size="sm"
-                              onClick={() => handleJoin(club.name)}
-                              disabled={joinedClubs.includes(club.name)}
+                              className="flex-1"
+                              onClick={() => setSelectedClubId(club.id)}
                             >
-                              {joinedClubs.includes(club.name) ? "Joined" : "Join"}
+                              View Feed
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedClub(club)}
+                              onClick={() => setConfirmLeaveClub(club.id)}
                             >
+                              Leave
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => handleJoin(club.id, club.name)}
+                            >
+                              Join
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setAboutClub(club)}>
                               About
                             </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col flex-1 bg-muted/10 dark:bg-gray-900 rounded-lg shadow-lg p-4">
-                  <div className="flex items-center mb-4">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setActiveChatClub(null)}
-                      className="mr-2"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <h2 className="text-xl font-bold">{activeChatClub} Chat Room</h2>
-                  </div>
-                  <div className="flex-1 overflow-y-auto border rounded-md p-3 bg-background dark:bg-gray-800">
-                    {(chatMessages[activeChatClub] || []).map((msg, i) => (
-                      <p key={i} className="mb-2 text-sm">
-                        <span className="font-semibold text-primary">You:</span> {msg}
-                      </p>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Input
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Type your message..."
-                    />
-                    <Button onClick={handleSendMessage}>Send</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right Sidebar - Top Communities */}
-            <div className="space-y-4 sm:space-y-6 animate-slide-up order-3">
-              <Card className="p-4 shadow-soft">
-                <h4 className="font-semibold text-sm mb-4">🏆 Top Clubs</h4>
-                <div className="space-y-3">
-                  {topClubs.map((club, i) => (
-                    <div key={club.id} className="flex items-center justify-between">
-                      <div>
-                        <h5 className="font-semibold text-sm">
-                          {i + 1}. {club.name}
-                        </h5>
-                        <p className="text-xs text-muted-foreground">{club.members} Members</p>
+                          </>
+                        )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleJoin(club.name)}
-                        disabled={joinedClubs.includes(club.name)}
-                      >
-                        {joinedClubs.includes(club.name) ? "Joined" : "Join"}
-                      </Button>
-                    </div>
+                    </Card>
                   ))}
                 </div>
-              </Card>
+                {filteredClubs.length === 0 && (
+                  <div className="flex items-center justify-center h-32 rounded-lg border border-dashed">
+                    <p className="text-muted-foreground">No clubs found matching your search</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col h-full">
+              {/* Club Header */}
+              <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedClubId(null)}>
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedClub?.name}</h2>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                      <Users className="h-4 w-4" />
+                      {selectedClub?.memberCount} members
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmLeaveClub(selectedClubId)}
+                >
+                  Leave Club
+                </Button>
+              </div>
+
+              {/* Posts Feed */}
+              <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+                {loadingPosts ? (
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-muted-foreground">Loading posts...</p>
+                  </div>
+                ) : clubPosts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-32 text-center">
+                    <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-2" />
+                    <p className="text-muted-foreground text-sm">No posts yet. Be the first to share!</p>
+                  </div>
+                ) : (
+                  clubPosts.map((post) => (
+                    <Card key={post.id} className="p-4 bg-background">
+                      <div className="flex gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={post.userPhoto} />
+                          <AvatarFallback>{post.userName.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 w-full">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-semibold text-sm">{post.userName}</h4>
+                            <span className="text-xs text-muted-foreground">
+                              {post.createdAt && new Date(post.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground mb-2">{post.content}</p>
+                          {post.postImage && (
+                            <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
+                              <img
+                                src={post.postImage}
+                                alt="Post image"
+                                className="w-full h-auto object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+
+              {/* Post Input */}
+              <div className="border-t pt-4 space-y-3 bg-muted/30 p-4 rounded-lg">
+                <div className="space-y-2">
+                  <Textarea
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    placeholder="Share something with the club..."
+                    className="resize-none"
+                    rows={3}
+                  />
+                  {imagePreview && (
+                    <div className="relative inline-block">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="h-20 w-20 object-cover rounded-lg"
+                      />
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 w-6"
+                        onClick={() => {
+                          setSelectedImage(null);
+                          setImagePreview("");
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="gap-2"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    Add Photo
+                  </Button>
+                  <Button
+                    onClick={handlePostToClub}
+                    disabled={!postContent.trim()}
+                    className="flex-1"
+                  >
+                    Share Post
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* ✅ Fixed About Modal (only one Close button now) */}
-      <Dialog open={!!selectedClub}>
+      {/* About Club Modal */}
+      <Dialog open={!!aboutClub} onOpenChange={() => setAboutClub(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedClub?.name}</DialogTitle>
-            <DialogDescription>{selectedClub?.description}</DialogDescription>
+            <DialogTitle>{aboutClub?.name}</DialogTitle>
+            <DialogDescription>{aboutClub?.description}</DialogDescription>
           </DialogHeader>
-          <p className="text-sm mt-2">Members: {selectedClub?.members}</p>
-          <div className="mt-4 flex items-center space-x-3">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <Instagram className="h-4 w-4" />
-              Instagram
-            </Button>
-            <Button variant="outline" size="sm">Website</Button>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4" />
+              <span>{aboutClub?.memberCount} Members</span>
+            </div>
+            {aboutClub?.category && (
+              <div className="text-sm">
+                <span className="font-semibold">Category:</span> {aboutClub.category}
+              </div>
+            )}
+            <div className="flex items-center space-x-3">
+              {aboutClub?.instagram && (
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Instagram className="h-4 w-4" />
+                  Instagram
+                </Button>
+              )}
+              {aboutClub?.website && (
+                <Button variant="outline" size="sm">
+                  Website
+                </Button>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setSelectedClub(null)}>Close</Button>
+            <Button onClick={() => setAboutClub(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -287,17 +490,18 @@ export default function Clubs() {
       <Dialog open={!!confirmLeaveClub} onOpenChange={() => setConfirmLeaveClub(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Leave {confirmLeaveClub}?</DialogTitle>
+            <DialogTitle>Leave Club?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to leave this community?
+              Are you sure you want to leave {clubs.find((c) => c.id === confirmLeaveClub)?.name}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="destructive"
               onClick={() => {
-                handleLeave(confirmLeaveClub!);
-                setConfirmLeaveClub(null);
+                const clubName =
+                  clubs.find((c) => c.id === confirmLeaveClub)?.name || "Club";
+                handleLeave(confirmLeaveClub!, clubName);
               }}
             >
               Yes, Leave
