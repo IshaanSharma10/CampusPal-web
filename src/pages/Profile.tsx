@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MapPin, Calendar, Heart, MessageCircle, Share2, Camera } from "lucide-react";
+import { MapPin, Calendar, Heart, MessageCircle, Share2, Camera, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Post } from "@/lib/firebase-utils";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "../SupabaseConfig";
+import { useClubs } from "@/hooks/useClubs";
 
 interface UserProfile {
   displayName: string;
@@ -31,6 +32,7 @@ interface UserProfile {
 
 export default function Profile() {
   const { toast } = useToast();
+  const { clubs, joinedClubs, loading: loadingClubs } = useClubs();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,6 +43,9 @@ export default function Profile() {
   const [otherUsers, setOtherUsers] = useState<UserProfile[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
+
+  // Get user's joined clubs
+  const userJoinedClubs = clubs.filter((club) => joinedClubs.includes(club.id));
 
   // ✅ Load user profile from Firestore
   useEffect(() => {
@@ -366,27 +371,36 @@ export default function Profile() {
                   )}
                 </Card>
 
-                {/* ✅ Communities Section */}
+                {/* ✅ My Clubs Section */}
                 <Card className="p-6 shadow-soft">
-                  <h3 className="font-bold text-sm mb-4 uppercase text-muted-foreground">My Communities</h3>
+                  <h3 className="font-bold text-sm mb-4 uppercase text-muted-foreground flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    My Clubs
+                  </h3>
                   <div className="space-y-3">
-                    {[
-                      { name: "Computer Science Dept.", icon: "💻" },
-                      { name: "Chess Club", icon: "♟️" },
-                      { name: "Hiking Group", icon: "🥾" },
-                    ].map((club) => (
-                      <div
-                        key={club.name}
-                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition cursor-pointer"
-                      >
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg">
-                          {club.icon}
+                    {loadingClubs ? (
+                      <p className="text-sm text-muted-foreground">Loading clubs...</p>
+                    ) : userJoinedClubs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No clubs joined yet</p>
+                    ) : (
+                      userJoinedClubs.map((club) => (
+                        <div
+                          key={club.id}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition cursor-pointer"
+                        >
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-lg">
+                            💬
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="text-sm font-semibold truncate">{club.name}</h5>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                              <Users className="h-3 w-3" />
+                              {club.memberCount} members
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="text-sm font-semibold truncate">{club.name}</h5>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </Card>
               </div>
