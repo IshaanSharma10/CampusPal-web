@@ -48,7 +48,9 @@ export interface ClubPost {
   content: string;
   postImage?: string;
   likes: number;
+  likedBy?: string[];
   createdAt: Date;
+  updatedAt?: Date;
 }
 
 export function useClubs() {
@@ -209,13 +211,27 @@ export function useClubs() {
       
       const posts: ClubPost[] = [];
       snapshot.forEach((doc) => {
+        const data = doc.data();
         posts.push({
           id: doc.id,
-          ...doc.data(),
+          clubId: data.clubId,
+          userId: data.userId,
+          userName: data.userName || 'Unknown User',
+          userPhoto: data.userPhoto || '',
+          content: data.content,
+          postImage: data.postImage || undefined,
+          likes: data.likes || 0,
+          likedBy: data.likedBy || [],
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || undefined,
         } as ClubPost);
       });
       
-      return posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return posts.sort((a, b) => {
+        const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return timeB - timeA;
+      });
     } catch (error) {
       console.error('Error fetching club posts:', error);
       return [];
@@ -257,32 +273,151 @@ export function useClubs() {
       }
 
       const postsRef = collection(db, 'clubPosts');
-      await addDoc(postsRef, {
+      const postData = {
         clubId,
         userId: currentUser.uid,
-        userName: userProfile.displayName,
-        userPhoto: userProfile.photoURL,
+        userName: userProfile.displayName || 'Unknown User',
+        userPhoto: userProfile.photoURL || '',
         content,
-        postImage: postImageUrl,
+        postImage: postImageUrl || null,
         likes: 0,
+        likedBy: [],
         createdAt: serverTimestamp(),
-      });
+      };
+
+      await addDoc(postsRef, postData);
 
       toast.success('Post shared!');
     } catch (error) {
       console.error('Error posting to club:', error);
-      toast.error('Failed to share post');
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.message.includes('Permission denied')) {
+          toast.error('Permission denied. Please try again.');
+        } else {
+          toast.error('Failed to share post: ' + error.message);
+        }
+      } else {
+        toast.error('Failed to share post');
+      }
     }
   };
 
-  return {
-    clubs,
-    joinedClubs,
-    loading,
-    joinClub,
-    leaveClub,
-    getClubMembers,
-    getClubPosts,
-    postToClub,
+  const likePost = async (clubId: string, postId: string) => {
+    if (!currentUser) {
+      toast.error('Please log in to like posts');
+      return;
+    }
+
+    try {
+      const postRef = doc(db, 'clubPosts', postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (!postSnap.exists()) {
+        toast.error('Post not found');
+        return;
+      }
+
+      const postData = postSnap.data();
+      const likedBy = postData.likedBy || [];
+      const userIndex = likedBy.indexOf(currentUser.uid);
+
+      if (userIndex > -1) {
+        // Unlike
+        likedBy.splice(userIndex, 1);
+        await updateDoc(postRef, {
+          likedBy,
+          likes: increment(-1),
+        });
+        toast.success('Post unliked');
+      } else {
+        // Like
+        likedBy.push(currentUser.uid);
+        await updateDoc(postRef, {
+          likedBy,
+          likes: increment(1),
+        });
+        toast.success('Post liked');
+      }
+    } catch (error) {
+      console.error('Error liking post:', error);
+      toast.error('Failed to like post');
+    }
   };
-}
+
+  const editPost = async (clubId: string, postId: string, newContent: string) => {
+    if (!currentUser) {
+      toast.error('Please log in to edit posts');
+      return;
+    }
+
+    try {
+      const postRef = doc(db, 'clubPosts', postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (!postSnap.exists()) {
+        toast.error('Post not found');
+        return;
+      }
+
+      const postData = postSnap.data();
+      if (postData.userId !== currentUser.uid) {
+        toast.error('You can only edit your own posts');
+        return;
+      }
+
+      await updateDoc(postRef, {
+        content: newContent,
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success('Post updated');
+    } catch (error) {
+      console.error('Error editing post:', error);
+      toast.error('Failed to edit post');
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    if (!currentUser) {
+      toast.error('Please log in to delete posts');
+      return;
+    }
+
+    try {
+      const postRef = doc(db, 'clubPosts', postId);
+      const postSnap = await getDoc(postRef);
+      
+      if (!postSnap.exists()) {
+        toast.error('Post not found');
+        return;
+      }
+
+      const postData = postSnap.data();
+      if (postData.userId !== currentUser.uid) {
+        toast.error('You can only delete your own posts');
+        return;
+      }
+
+      await deleteDoc(postRef);
+      toast.success('Post deleted');
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Failed to delete post');
+    }
+  };
+
+   return {
+     clubs,
+     joinedClubs,
+     loading,
+     joinClub,
+     leaveClub,
+     getClubMembers,
+     getClubPosts,
+     postToClub,
+     likePost,
+     editPost,
+     deletePost,
+   };
+  }

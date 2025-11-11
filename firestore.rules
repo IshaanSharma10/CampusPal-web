@@ -196,5 +196,39 @@ service cloud.firestore {
       // Club admins can update/delete (implement admin field in your data)
       allow update, delete: if isAuthenticated();
     }
+    
+    // ============================
+    // CLUB MEMBERS COLLECTION
+    // ============================
+    match /clubMembers/{memberId} {
+      // Anyone authenticated can read club members
+      allow read: if isAuthenticated();
+      // Authenticated users can join clubs (create membership)
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.userId;
+      // Users can only update/delete their own membership
+      allow update, delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // ============================
+    // CLUB POSTS COLLECTION
+    // ============================
+    match /clubPosts/{postId} {
+      // Anyone authenticated can read club posts
+      allow read: if isAuthenticated();
+      // Authenticated users can create posts in clubs
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.userId;
+      // Users can update their own posts (content, updatedAt) or anyone can like/unlike (likedBy, likes)
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == resource.data.userId && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'updatedAt'])) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likes'])
+      );
+      // Users can only delete their own posts
+      allow delete: if isAuthenticated() && 
+        request.auth.uid == resource.data.userId;
+    }
   }
 }

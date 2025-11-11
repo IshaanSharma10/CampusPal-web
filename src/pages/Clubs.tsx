@@ -17,6 +17,10 @@ import {
   Image as ImageIcon,
   X,
   Star,
+  Heart,
+  Edit2,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -27,13 +31,19 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useClubs, ClubPost } from "@/hooks/useClubs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function Clubs() {
-  const { clubs, joinedClubs, loading, joinClub, leaveClub, getClubPosts, postToClub } = useClubs();
+  const { clubs, joinedClubs, loading, joinClub, leaveClub, getClubPosts, postToClub, likePost, editPost, deletePost } = useClubs();
   const { currentUser } = useAuth();
 
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
@@ -46,6 +56,8 @@ export default function Clubs() {
   const [confirmLeaveClub, setConfirmLeaveClub] = useState<string | null>(null);
   const [aboutClub, setAboutClub] = useState<any>(null);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = ["Tech", "Academic", "Arts", "Social", "Sports", "Entrepreneurship", "Cultural"];
@@ -355,35 +367,125 @@ export default function Clubs() {
                     <p className="text-muted-foreground text-sm">No posts yet. Be the first to share!</p>
                   </div>
                 ) : (
-                  clubPosts.map((post) => (
-                    <Card key={post.id} className="p-4 bg-background">
-                      <div className="flex gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={post.userPhoto} />
-                          <AvatarFallback>{post.userName.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 w-full">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold text-sm">{post.userName}</h4>
-                            <span className="text-xs text-muted-foreground">
-                              {post.createdAt && new Date(post.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-foreground mb-2">{post.content}</p>
-                          {post.postImage && (
-                            <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
-                              <img
-                                src={post.postImage}
-                                alt="Post image"
-                                className="w-full h-auto object-cover"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))
-                )}
+                   clubPosts.map((post) => (
+                     <Card key={post.id} className="p-4 bg-background">
+                       <div className="flex gap-3">
+                         <Avatar className="h-8 w-8">
+                           <AvatarImage src={post.userPhoto} />
+                           <AvatarFallback>{post.userName.charAt(0).toUpperCase()}</AvatarFallback>
+                         </Avatar>
+                         <div className="flex-1 w-full">
+                           <div className="flex items-center justify-between mb-1">
+                             <div>
+                               <h4 className="font-semibold text-sm">{post.userName}</h4>
+                               <span className="text-xs text-muted-foreground">
+                                 {post.createdAt && new Date(post.createdAt).toLocaleDateString()}
+                                 {post.updatedAt && post.updatedAt !== post.createdAt && " (edited)"}
+                               </span>
+                             </div>
+                             {currentUser?.uid === post.userId && (
+                               <DropdownMenu>
+                                 <DropdownMenuTrigger asChild>
+                                   <Button variant="ghost" size="icon" className="h-6 w-6">
+                                     <MoreVertical className="h-4 w-4" />
+                                   </Button>
+                                 </DropdownMenuTrigger>
+                                 <DropdownMenuContent align="end">
+                                   <DropdownMenuItem
+                                     onClick={() => {
+                                       setEditingPostId(post.id);
+                                       setEditingContent(post.content);
+                                     }}
+                                   >
+                                     <Edit2 className="h-4 w-4 mr-2" />
+                                     Edit
+                                   </DropdownMenuItem>
+                                   <DropdownMenuItem
+                                     className="text-red-600"
+                                     onClick={async () => {
+                                       await deletePost(post.id);
+                                       const posts = await getClubPosts(selectedClubId!);
+                                       setClubPosts(posts);
+                                     }}
+                                   >
+                                     <Trash2 className="h-4 w-4 mr-2" />
+                                     Delete
+                                   </DropdownMenuItem>
+                                 </DropdownMenuContent>
+                               </DropdownMenu>
+                             )}
+                           </div>
+                           {editingPostId === post.id ? (
+                             <div className="space-y-2 mb-2">
+                               <Textarea
+                                 value={editingContent}
+                                 onChange={(e) => setEditingContent(e.target.value)}
+                                 className="resize-none text-sm"
+                                 rows={3}
+                               />
+                               <div className="flex gap-2">
+                                 <Button
+                                   size="sm"
+                                   onClick={async () => {
+                                     await editPost(selectedClubId!, post.id, editingContent);
+                                     const posts = await getClubPosts(selectedClubId!);
+                                     setClubPosts(posts);
+                                     setEditingPostId(null);
+                                     setEditingContent("");
+                                   }}
+                                 >
+                                   Save
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   variant="outline"
+                                   onClick={() => {
+                                     setEditingPostId(null);
+                                     setEditingContent("");
+                                   }}
+                                 >
+                                   Cancel
+                                 </Button>
+                               </div>
+                             </div>
+                           ) : (
+                             <p className="text-sm text-foreground mb-2">{post.content}</p>
+                           )}
+                           {post.postImage && (
+                             <div className="mt-2 rounded-lg overflow-hidden max-w-sm">
+                               <img
+                                 src={post.postImage}
+                                 alt="Post image"
+                                 className="w-full h-auto object-cover"
+                               />
+                             </div>
+                           )}
+                           <div className="flex items-center gap-4 mt-3 pt-2 border-t">
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               className="gap-2"
+                               onClick={async () => {
+                                 await likePost(selectedClubId!, post.id);
+                                 const posts = await getClubPosts(selectedClubId!);
+                                 setClubPosts(posts);
+                               }}
+                             >
+                               <Heart
+                                 className={`h-4 w-4 ${
+                                   post.likedBy?.includes(currentUser?.uid || "") 
+                                     ? "fill-red-500 text-red-500" 
+                                     : ""
+                                 }`}
+                               />
+                               <span className="text-xs">{post.likes || 0}</span>
+                             </Button>
+                           </div>
+                         </div>
+                       </div>
+                     </Card>
+                   ))
+                 )}
               </div>
 
               {/* Post Input */}
