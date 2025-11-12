@@ -112,11 +112,11 @@ async function uploadImageToSupabase(file: File, folder: string): Promise<string
 const categories = [
     { value: "all", label: "All Posts" },
     { value: "academic", label: "Academic" },
-    { value: "events", label: "Events" },
-    { value: "clubs", label: "Clubs" },
-    { value: "lost-found", label: "Lost & Found" },
-    { value: "marketplace", label: "Marketplace" },
+    { value: "discussion", label: "Discussion" },
+    { value: "tips", label: "Tips & Advice" },
+    { value: "general", label: "General" },
     { value: "fun", label: "Fun" },
+    { value: "news", label: "News" },
 ];
 
 export default function Feed() {
