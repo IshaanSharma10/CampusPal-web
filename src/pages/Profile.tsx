@@ -18,6 +18,7 @@ import { Post } from "@/lib/firebase-utils";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "../SupabaseConfig";
 import { useClubs } from "@/hooks/useClubs";
+import { getCurrentUserProfilePic, getAvatarFallback } from "@/lib/profilePicUtils";
 
 interface UserProfile {
   displayName: string;
@@ -269,9 +270,9 @@ export default function Profile() {
                   <div className="flex flex-col items-center text-center mb-6 relative">
                     <div className="relative">
                       <Avatar className="h-32 w-32 mb-4 border-4 border-primary/20">
-                        <AvatarImage src={previewUrl || userData.profilePic || ""} alt={userData.displayName} />
+                        <AvatarImage src={previewUrl || userData?.profilePic || userData?.photoURL || ""} alt={userData?.displayName} />
                         <AvatarFallback className="text-3xl">
-                          {userData.displayName?.charAt(0) || "U"}
+                          {getAvatarFallback(userData?.displayName)}
                         </AvatarFallback>
                       </Avatar>
 

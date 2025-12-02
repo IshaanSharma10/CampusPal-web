@@ -70,6 +70,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { getCurrentUserProfilePic, getAvatarFallback } from "@/lib/profilePicUtils";
 
 // ✅ Compress and resize image before upload
 async function compressImage(file: File): Promise<File> {
@@ -462,11 +463,9 @@ export default function Feed() {
                     <Card className="p-4 shadow-soft hover:shadow-medium transition-smooth mb-6">
                         <div className="flex gap-3">
                             <Avatar>
-                                <AvatarImage src={userProfile?.photoURL || currentUser.photoURL} />
+                                <AvatarImage src={getCurrentUserProfilePic(currentUser, userProfile)} />
                                 <AvatarFallback>
-                                    {userProfile?.displayName?.charAt(0) ||
-                                        currentUser.displayName?.charAt(0) ||
-                                        "U"}
+                                    {getAvatarFallback(userProfile?.displayName || currentUser.displayName)}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex-1">

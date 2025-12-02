@@ -15,6 +15,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "../SupabaseConfig";
+import { getCurrentUserProfilePic, getAvatarFallback } from "@/lib/profilePicUtils";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -216,11 +217,11 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20">
                       <AvatarImage
-                        src={previewUrl || userData.photoURL || "/placeholder.svg"}
+                        src={previewUrl || userData.photoURL || ""}
                         alt={userData.displayName}
                       />
                       <AvatarFallback className="text-lg">
-                        {userData.displayName?.charAt(0).toUpperCase()}
+                        {getAvatarFallback(userData.displayName)}
                       </AvatarFallback>
                     </Avatar>
 

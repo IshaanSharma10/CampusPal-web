@@ -20,6 +20,7 @@ import {
   Check,
   X,
   Menu,
+  LogOut,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +41,7 @@ subscribeToUserChats,
 subscribeToChatMessages,
 addParticipantsToGroup,
 deleteMessage,
+removeParticipantFromGroup,
 } from "@/lib/firebase-utils";
 import type { Chat, ChatMessage } from "@/lib/firebase-utils";
 import { toast } from "sonner";
@@ -66,6 +68,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { getCurrentUserProfilePic, getAvatarFallback } from "@/lib/profilePicUtils";
 
 export default function Chat() {
   const { currentUser, userProfile } = useAuth();
@@ -83,6 +95,7 @@ export default function Chat() {
   const [newChatDialog, setNewChatDialog] = useState(false);
   const [newGroupDialog, setNewGroupDialog] = useState(false);
   const [addMembersDialog, setAddMembersDialog] = useState(false);
+  const [leaveGroupDialog, setLeaveGroupDialog] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
@@ -265,6 +278,23 @@ export default function Chat() {
     }
   };
 
+  const handleLeaveGroup = async () => {
+    if (!selectedChat || !currentUser) return;
+
+    try {
+      await removeParticipantFromGroup(selectedChat.id!, currentUser.uid);
+      
+      // Remove chat from list
+      setChats(chats.filter(c => c.id !== selectedChat.id));
+      setSelectedChat(null);
+      setLeaveGroupDialog(false);
+      toast.success("You left the group chat");
+    } catch (error: any) {
+      console.error("Error leaving group:", error);
+      toast.error(error.message || "Failed to leave group");
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string | undefined) => {
     if (!currentUser || !messageId) {
       toast.error("Cannot delete message");
@@ -409,9 +439,9 @@ export default function Chat() {
                     selectedChat?.id === chat.id ? "bg-muted/50" : "hover:bg-muted/20"
                   }`}
                 >
-                  <Avatar>
-                    <AvatarImage src={chat.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>
+                  <Avatar className="ring-1 ring-border">
+                    <AvatarImage src={chat.avatar || ""} />
+                    <AvatarFallback className={`text-xs ${chat.type === "group" ? "bg-blue-500/10" : "bg-purple-500/10"}`}>
                       {chat.type === "group" ? "G" : chat.participantDetails?.find(p => p.id !== currentUser.uid)?.name?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -548,9 +578,9 @@ export default function Chat() {
                     {friendRequests.map((request) => (
                       <div key={request.id} className="bg-card p-3 rounded-lg flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-8 w-8 ring-1 ring-border">
                             <AvatarImage src={request.senderAvatar} />
-                            <AvatarFallback>{request.senderName.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="bg-green-500/10 text-xs">{request.senderName.charAt(0)}</AvatarFallback>
                           </Avatar>
                           <span className="text-sm font-medium truncate">{request.senderName}</span>
                         </div>
@@ -591,9 +621,9 @@ export default function Chat() {
                       onClick={() => handleStartDirectChat(friend.id)}
                       className="w-full p-2 flex items-center gap-3 hover:bg-muted/50 rounded-lg transition-smooth"
                     >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={friend.avatar} />
-                        <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                      <Avatar className="h-10 w-10 ring-1 ring-border">
+                        <AvatarImage src={friend.avatar || ""} />
+                        <AvatarFallback className="bg-orange-500/10">{friend.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <span className="font-medium text-sm">{friend.name}</span>
                     </button>
@@ -656,9 +686,9 @@ export default function Chat() {
                 {/* Chat Header */}
                 <div className="h-16 border-b border-border flex items-center justify-between px-4 sm:px-6 bg-card">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Avatar>
-                      <AvatarImage src={selectedChat.avatar || "/placeholder.svg"} />
-                      <AvatarFallback>
+                    <Avatar className="ring-2 ring-primary/20">
+                      <AvatarImage src={selectedChat.avatar || ""} />
+                      <AvatarFallback className={selectedChat.type === "group" ? "bg-blue-500/10" : "bg-purple-500/10"}>
                         {selectedChat.type === "group" ? "G" : selectedChat.participantDetails?.find(p => p.id !== currentUser.uid)?.name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
@@ -691,6 +721,13 @@ export default function Chat() {
                               Add Members
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => setLeaveGroupDialog(true)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <LogOut className="h-4 w-4 mr-2" />
+                              Leave Group
+                            </DropdownMenuItem>
                           </>
                         )}
                       </DropdownMenuContent>
@@ -717,9 +754,9 @@ export default function Chat() {
                         }`}
                       >
                         {msg.senderId !== currentUser.uid && (
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-8 w-8 ring-1 ring-border">
                             <AvatarImage src={msg.senderAvatar} />
-                            <AvatarFallback>{msg.senderName.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="bg-primary/10">{msg.senderName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         )}
                         <div className={`flex flex-col ${msg.senderId === currentUser.uid ? "items-end" : ""}`}>
@@ -767,9 +804,9 @@ export default function Chat() {
                           </p>
                         </div>
                         {msg.senderId === currentUser.uid && (
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={userProfile?.photoURL || currentUser.photoURL} />
-                            <AvatarFallback>{userProfile?.displayName?.charAt(0) || currentUser.displayName?.charAt(0) || "U"}</AvatarFallback>
+                          <Avatar className="h-8 w-8 ring-1 ring-primary/30">
+                            <AvatarImage src={getCurrentUserProfilePic(currentUser, userProfile)} />
+                            <AvatarFallback className="bg-primary/20">{getAvatarFallback(userProfile?.displayName || currentUser.displayName)}</AvatarFallback>
                           </Avatar>
                         )}
                       </div>
@@ -857,6 +894,27 @@ export default function Chat() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                {/* Leave Group Dialog */}
+                <AlertDialog open={leaveGroupDialog} onOpenChange={setLeaveGroupDialog}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Leave Group Chat</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to leave "{selectedChat?.name}"? You will no longer see this conversation and can only rejoin if invited again.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex gap-3 justify-end">
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleLeaveGroup}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Leave Group
+                      </AlertDialogAction>
+                    </div>
+                  </AlertDialogContent>
+                </AlertDialog>
                 </>
                 ) : (
                 <div className="flex-1 flex items-center justify-center p-4">

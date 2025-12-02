@@ -17,6 +17,7 @@ interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
+  profilePic?: string;
   department?: string;
   batch?: string;
   bio?: string;

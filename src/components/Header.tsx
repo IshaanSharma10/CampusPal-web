@@ -33,6 +33,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/FirebaseConfig";
 import logo from "../../public/logoweb.png";
+import { getAvatarFallback } from "@/lib/profilePicUtils";
 
 const navigation = [
   { name: "Feed", href: "/feed", icon: Home },
@@ -199,9 +200,7 @@ export const Header = () => {
             <Avatar className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-transparent hover:ring-primary transition-smooth">
               <AvatarImage src={profilePic} alt={currentUser?.displayName || "User"} />
               <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {currentUser?.displayName
-                  ? currentUser.displayName.charAt(0).toUpperCase()
-                  : "U"}
+                {getAvatarFallback(currentUser?.displayName)}
               </AvatarFallback>
             </Avatar>
           </div>
