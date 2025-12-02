@@ -42,7 +42,6 @@ subscribeToChatMessages,
 addParticipantsToGroup,
 deleteMessage,
 removeParticipantFromGroup,
-deleteChat,
 } from "@/lib/firebase-utils";
 import type { Chat, ChatMessage } from "@/lib/firebase-utils";
 import { toast } from "sonner";
@@ -97,7 +96,6 @@ export default function Chat() {
   const [newGroupDialog, setNewGroupDialog] = useState(false);
   const [addMembersDialog, setAddMembersDialog] = useState(false);
   const [leaveGroupDialog, setLeaveGroupDialog] = useState(false);
-  const [deleteChatDialog, setDeleteChatDialog] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
@@ -294,23 +292,6 @@ export default function Chat() {
     } catch (error: any) {
       console.error("Error leaving group:", error);
       toast.error(error.message || "Failed to leave group");
-    }
-  };
-
-  const handleDeleteChat = async () => {
-    if (!selectedChat || !currentUser) return;
-
-    try {
-      await deleteChat(selectedChat.id!, currentUser.uid);
-      
-      // Remove chat from list
-      setChats(chats.filter(c => c.id !== selectedChat.id));
-      setSelectedChat(null);
-      setDeleteChatDialog(false);
-      toast.success("Chat deleted permanently");
-    } catch (error: any) {
-      console.error("Error deleting chat:", error);
-      toast.error(error.message || "Failed to delete chat");
     }
   };
 
@@ -749,25 +730,6 @@ export default function Chat() {
                              </DropdownMenuItem>
                            </>
                          )}
-                         {selectedChat.type === "direct" && (
-                           <DropdownMenuItem 
-                             onClick={() => setDeleteChatDialog(true)}
-                             className="text-red-600 focus:text-red-600"
-                           >
-                             Delete Chat
-                           </DropdownMenuItem>
-                         )}
-                         {selectedChat.type === "group" && (
-                           <>
-                             <DropdownMenuSeparator />
-                             <DropdownMenuItem 
-                               onClick={() => setDeleteChatDialog(true)}
-                               className="text-red-600 focus:text-red-600"
-                             >
-                               Delete Chat
-                             </DropdownMenuItem>
-                           </>
-                         )}
                        </DropdownMenuContent>
                      </DropdownMenu>
                   </div>
@@ -949,29 +911,6 @@ export default function Chat() {
                         className="bg-red-600 hover:bg-red-700"
                       >
                         Leave Group
-                      </AlertDialogAction>
-                    </div>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                {/* Delete Chat Dialog */}
-                <AlertDialog open={deleteChatDialog} onOpenChange={setDeleteChatDialog}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Chat</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {selectedChat?.type === "direct"
-                          ? "Are you sure you want to delete this conversation? This will permanently delete the entire chat history and cannot be undone."
-                          : "Are you sure you want to delete this group chat? You will leave the group, and the chat will be deleted for you. This cannot be undone."}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="flex gap-3 justify-end">
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteChat}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        Delete Chat
                       </AlertDialogAction>
                     </div>
                   </AlertDialogContent>
