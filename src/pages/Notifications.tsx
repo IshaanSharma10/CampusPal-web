@@ -242,10 +242,10 @@ export default function Notifications() {
   <Sidebar />
   <MobileNav />
 
-  <div className="lg:ml-64 flex-1">
+  <div className="lg:ml-64 flex-1 w-full">
   <Header />
 
-  <main className="container mx-auto max-w-6xl p-4 sm:p-6 pb-20 lg:pb-6">
+  <main className="w-full container mx-auto max-w-6xl p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
   {/* Header Section */}
   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
   <div className="flex items-center gap-3">

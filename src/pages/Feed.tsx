@@ -439,9 +439,9 @@ export default function Feed() {
         <div className="flex min-h-screen w-full bg-background">
             <Sidebar />
             <MobileNav />
-            <div className="lg:ml-64 flex-1">
+            <div className="lg:ml-64 flex-1 w-full">
                 <Header />
-                <main className="mx-auto max-w-4xl p-4 sm:p-6 pb-20 lg:pb-6">
+                <main className="mx-auto w-full max-w-4xl p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
                     {/* Filter */}
                     <div className="mb-4">
                         <Select value={filterCategory} onValueChange={setFilterCategory}>

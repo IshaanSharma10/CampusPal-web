@@ -298,9 +298,9 @@ export default function LostFoundPage() {
     return (
         <div className="min-h-screen bg-background">
             <Header />
-            <div className="flex pt-16">
+            <div className="flex pt-16 w-full">
                 <Sidebar />
-                <main className="flex-1 p-6 lg:ml-64">
+                <main className="flex-1 w-full p-3 sm:p-4 md:p-6 lg:ml-64 pb-24 sm:pb-20 lg:pb-0">
                     <div className="max-w-4xl mx-auto space-y-6">
                         <div className="flex items-center justify-between">
                             <h1 className="text-3xl font-bold">Lost & Found</h1>

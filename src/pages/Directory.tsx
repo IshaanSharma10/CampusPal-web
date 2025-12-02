@@ -147,10 +147,10 @@ export default function Directory() {
       <Sidebar />
       <MobileNav />
 
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
-
-        <main className="mx-auto max-w-7xl p-4 sm:p-6 pb-20 lg:pb-6">
+        
+        <main className="mx-auto w-full max-w-7xl p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
           <div className="mb-6">
             <h1 className="text-3xl font-bold mb-2">Student Directory</h1>
             <p className="text-muted-foreground">

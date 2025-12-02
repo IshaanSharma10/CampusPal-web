@@ -257,11 +257,11 @@ export default function Profile() {
       <Sidebar />
       <MobileNav />
 
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
 
-        <main className="animate-slide-up pb-20 lg:pb-0">
-          <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6">
+        <main className="w-full animate-slide-up pb-24 sm:pb-20 lg:pb-0">
+          <div className="container max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
             <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
               {/* ✅ Left: Profile Info */}
               <div className="space-y-6">

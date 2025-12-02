@@ -189,10 +189,10 @@ export default function Settings() {
       <Sidebar />
       <MobileNav />
 
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
 
-        <main className="p-4 sm:p-6 pb-20 lg:pb-6 max-w-5xl mx-auto animate-slide-up">
+        <main className="w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6 max-w-5xl mx-auto animate-slide-up">
           <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Settings</h1>
             <p className="text-sm text-muted-foreground">

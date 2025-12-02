@@ -619,10 +619,10 @@ export default function Chat() {
       <Sidebar />
       <MobileNav />
 
-      <div className="lg:ml-64 flex-1 flex flex-col h-screen">
+      <div className="lg:ml-64 flex-1 w-full flex flex-col h-screen">
         <Header />
 
-        <main className="flex-1 flex overflow-hidden pb-16 lg:pb-0">
+        <main className="flex-1 w-full flex overflow-hidden pb-16 lg:pb-0">
           {/* Desktop Sidebar */}
           <div className="hidden md:flex md:w-80 border-r border-border bg-card flex-col">
             <ChatSidebarContent />

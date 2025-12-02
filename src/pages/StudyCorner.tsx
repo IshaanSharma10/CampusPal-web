@@ -220,9 +220,9 @@ export default function StudyCorner() {
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
       <MobileNav />
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
-        <main className="mx-auto max-w-6xl p-4 sm:p-6 pb-20 lg:pb-6">
+        <main className="mx-auto w-full max-w-6xl p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen className="h-8 w-8 text-primary" />

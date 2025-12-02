@@ -232,10 +232,10 @@ export default function Events() {
       <Sidebar />
       <MobileNav />
       
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
         
-        <main className="mx-auto max-w-6xl p-4 sm:p-6 pb-20 lg:pb-6">
+        <main className="mx-auto w-full max-w-6xl p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold">Events</h1>

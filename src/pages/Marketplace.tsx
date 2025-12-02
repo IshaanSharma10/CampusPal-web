@@ -318,10 +318,10 @@ export default function Marketplace() {
             <Sidebar />
             <MobileNav />
 
-            <div className="lg:ml-64 flex-1">
+            <div className="lg:ml-64 flex-1 w-full">
                 <Header />
 
-                <main className="p-4 sm:p-6 pb-20 lg:pb-6">
+                <main className="w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
                     <div className="max-w-7xl mx-auto space-y-6">
                         {/* Header */}
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-slide-up">

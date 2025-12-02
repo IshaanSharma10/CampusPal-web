@@ -147,9 +147,9 @@ export default function Clubs() {
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
       <MobileNav />
-      <div className="lg:ml-64 flex-1 flex flex-col">
+      <div className="lg:ml-64 flex-1 w-full flex flex-col">
         <Header />
-        <main className="flex-1 p-4 sm:p-6 pb-20 lg:pb-6">
+        <main className="flex-1 w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
           {!selectedClubId ? (
             <div className="space-y-6">
               {/* Header Section */}

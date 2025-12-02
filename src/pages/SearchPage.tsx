@@ -60,10 +60,10 @@ export default function SearchPage() {
       <Sidebar />
       <MobileNav />
       
-      <div className="lg:ml-64 flex-1">
+      <div className="lg:ml-64 flex-1 w-full">
         <Header />
         
-        <main className="p-4 sm:p-6 pb-20 lg:pb-6">
+        <main className="w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
             {/* Filters Sidebar */}
             <Card className="p-4 sm:p-6 h-fit shadow-soft animate-fade-in order-2 lg:order-1">
