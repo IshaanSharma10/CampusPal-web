@@ -101,15 +101,15 @@ export default function Directory() {
       );
     }
 
-    if (selectedDepartment !== "all") {
-      filtered = filtered.filter(
-        (student) => student.department === selectedDepartment
-      );
-    }
+    // if (selectedDepartment !== "all") {
+    //   filtered = filtered.filter(
+    //     (student) => student.department === selectedDepartment
+    //   );
+    // }
 
-    if (selectedBatch !== "all") {
-      filtered = filtered.filter((student) => student.batch === selectedBatch);
-    }
+    // if (selectedBatch !== "all") {
+    //   filtered = filtered.filter((student) => student.batch === selectedBatch);
+    // }
 
     setFilteredStudents(filtered);
   }
@@ -170,34 +170,7 @@ export default function Directory() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Select
-                value={selectedDepartment}
-                onValueChange={setSelectedDepartment}
-              >
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Filter by department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>
-                      {dept === "all" ? "All Departments" : dept}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedBatch} onValueChange={setSelectedBatch}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Filter by batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {batches.map((batch) => (
-                    <SelectItem key={batch} value={batch}>
-                      {batch === "all" ? "All Batches" : `Batch ${batch}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            
             </div>
           </div>
 
