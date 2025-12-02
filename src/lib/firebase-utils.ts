@@ -1240,6 +1240,64 @@ export async function deleteMessage(messageId: string, userId: string) {
   });
 }
 
+export async function deleteChat(chatId: string, userId: string) {
+  const chatRef = doc(db, "chats", chatId);
+  
+  // Get the chat to verify it exists and user is participant
+  const chatSnap = await getDoc(chatRef);
+  if (!chatSnap.exists()) throw new Error("Chat not found");
+  
+  const chat = chatSnap.data() as Chat;
+  
+  // Verify user is a participant
+  if (!chat.participants.includes(userId)) {
+    throw new Error("You are not a participant in this chat");
+  }
+  
+  // For direct chats, delete completely
+  if (chat.type === "direct") {
+    await deleteDoc(chatRef);
+    
+    // Delete all messages in this chat
+    const messagesQuery = query(
+      collection(db, "messages"),
+      where("chatId", "==", chatId)
+    );
+    const messagesSnap = await getDocs(messagesQuery);
+    for (const msgDoc of messagesSnap.docs) {
+      await deleteDoc(msgDoc.ref);
+    }
+  } else {
+    // For group chats, remove only the current user
+    const updatedParticipants = chat.participants.filter(id => id !== userId);
+    const updatedParticipantDetails = chat.participantDetails?.filter(p => p.id !== userId);
+    const updatedUnreadCount = { ...chat.unreadCount };
+    delete updatedUnreadCount[userId];
+    
+    // If no participants left, delete the chat
+    if (updatedParticipants.length === 0) {
+      await deleteDoc(chatRef);
+      
+      // Delete all messages in this chat
+      const messagesQuery = query(
+        collection(db, "messages"),
+        where("chatId", "==", chatId)
+      );
+      const messagesSnap = await getDocs(messagesQuery);
+      for (const msgDoc of messagesSnap.docs) {
+        await deleteDoc(msgDoc.ref);
+      }
+    } else {
+      // Update chat to remove user
+      await updateDoc(chatRef, {
+        participants: updatedParticipants,
+        participantDetails: updatedParticipantDetails,
+        unreadCount: updatedUnreadCount
+      });
+    }
+  }
+}
+
 // ============================
 // 🔹 HELPERS
 // ============================
