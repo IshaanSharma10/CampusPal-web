@@ -9,8 +9,6 @@ import { Input } from "@/components/ui/input";
 import {
   Search,
   Plus,
-  Phone,
-  Video,
   MoreVertical,
   Send,
   Smile,
@@ -678,12 +676,7 @@ export default function Chat() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon">
-                      <Phone className="h-5 w-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Video className="h-5 w-5" />
-                    </Button>
+                    
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -700,10 +693,6 @@ export default function Chat() {
                             <DropdownMenuSeparator />
                           </>
                         )}
-                        <DropdownMenuItem>
-                          <Settings className="h-4 w-4 mr-2" />
-                          Chat Settings
-                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -792,12 +781,6 @@ export default function Chat() {
                 {/* Message Input */}
                 <div className="border-t border-border bg-card p-4">
                   <div className="flex items-end gap-3">
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                      <Smile className="h-5 w-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
                     <Input
                       placeholder="Type a message..."
                       value={input}
