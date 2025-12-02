@@ -39,7 +39,7 @@ const navigation = [
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Placements & Internships", href: "/placements", icon: Briefcase },
-  { name: "Directory", href: "/directory", icon: UsersRound },
+  { name: "Connect", href: "/directory", icon: UsersRound },
   { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
   { name: "Study Corner", href: "/study-corner", icon: BookOpen },
   { name: "Lost & Found", href: "/lost-found", icon: FileSearch },
@@ -152,15 +152,10 @@ export const Header = () => {
           <img className="h-8 w-8 rounded-lg" src={logo} alt="CampusPal Logo" />
         </div>
 
-        {/* ✅ Search */}
+        
         <div className="flex flex-1 items-center gap-2">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search"
-              className="pl-10 bg-muted/50 border-0 focus-visible:ring-1 text-sm"
-            />
+            
           </div>
         </div>
 

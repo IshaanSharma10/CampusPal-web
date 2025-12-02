@@ -8,7 +8,7 @@ const navigation = [
     { name: "Chat", href: "/chat", icon: MessageSquare },
     { name: "Events", href: "/events", icon: Calendar },
     {name: "Placements & Internships" ,href:"/placements" ,icon: Briefcase},
-    { name: "Directory", href: "/directory", icon: UsersRound },
+    { name: "Connect", href: "/directory", icon: UsersRound },
     { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
     { name: "Study Corner", href: "/study-corner", icon: BookOpen },
     { name: "Lost & Found", href: "/lost-found", icon: FileSearch },

@@ -798,9 +798,68 @@ export default function Chat() {
                     </Button>
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center p-4">
+
+                {/* Add Members Dialog */}
+                <Dialog open={addMembersDialog} onOpenChange={(open) => {
+                  setAddMembersDialog(open);
+                  if (!open) setSelectedFriends([]);
+                }}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Members to Group</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      {friends.length === 0 ? (
+                        <p className="text-muted-foreground">No friends to add</p>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            {friends.map((friend) => {
+                              // Check if friend is already in the group
+                              const isAlreadyMember = selectedChat.participants.includes(friend.id);
+                              return (
+                                <div key={friend.id} className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id={friend.id}
+                                    disabled={isAlreadyMember}
+                                    checked={isAlreadyMember || selectedFriends.includes(friend.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked && !isAlreadyMember) {
+                                        setSelectedFriends([...selectedFriends, friend.id]);
+                                      } else {
+                                        setSelectedFriends(selectedFriends.filter(id => id !== friend.id));
+                                      }
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={friend.avatar} />
+                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                  </Avatar>
+                                  <span className={`text-sm ${isAlreadyMember ? "text-muted-foreground" : ""}`}>
+                                    {friend.name}
+                                    {isAlreadyMember && <span className="text-xs text-muted-foreground ml-1">(already member)</span>}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <Button 
+                            className="w-full" 
+                            onClick={handleAddMembers}
+                            disabled={selectedFriends.length === 0}
+                          >
+                            Add Members
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                </>
+                ) : (
+                <div className="flex-1 flex items-center justify-center p-4">
                 <div className="text-center">
                   <MessageCircle className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                   <h2 className="text-xl sm:text-2xl font-bold mb-2">Select a chat</h2>
@@ -814,11 +873,11 @@ export default function Chat() {
                     View Chats
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
+                </div>
+                )}
+                </div>
+                </main>
+                </div>
+                </div>
+                );
+                }
