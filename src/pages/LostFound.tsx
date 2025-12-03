@@ -16,13 +16,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LostFound, addComment, getComments, deleteComment, Comment, createDirectChat, sendMessage } from "@/lib/firebase-utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/SupabaseConfig";
-import { Image as ImageIcon, MapPin, Calendar, Phone, Check, X, MessageCircle, Send, MoreVertical, Trash2, MessageSquare } from "lucide-react";
+import { Image as ImageIcon, MapPin, Calendar, Phone, Check, X, MessageCircle, Send, MoreVertical, Trash2, MessageSquare, Plus, ImagePlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     DropdownMenu,
@@ -52,8 +54,7 @@ async function uploadImageToSupabase(file: File, folder: string): Promise<string
     if (uploadError) {
         console.error("❌ Storage upload error:", {
             message: uploadError.message,
-            statusCode: uploadError.statusCode,
-            error: uploadError.error
+            name: uploadError.name
         });
         throw uploadError;
     }
@@ -81,6 +82,8 @@ export default function LostFoundPage() {
     const [loadingComments, setLoadingComments] = useState(false);
     const [contactDialogOpen, setContactDialogOpen] = useState(false);
     const [selectedItemForContact, setSelectedItemForContact] = useState<LostFound | null>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [itemType, setItemType] = useState<'lost' | 'found'>('lost');
 
     const [formData, setFormData] = useState({
         title: "",
@@ -175,7 +178,9 @@ export default function LostFoundPage() {
         }
     };
 
-    const handleSubmit = async (type: 'lost' | 'found') => {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
         if (!formData.title || !formData.description || !formData.category || !formData.location || !formData.date || !formData.contact) {
             toast({
                 title: "Missing fields",
@@ -201,7 +206,7 @@ export default function LostFoundPage() {
                         category: formData.category,
                         location: formData.location,
                         date: formData.date,
-                        type,
+                        type: itemType,
                         reporter_id: currentUser!.uid,
                         reporter_name: userProfile?.displayName || 'Anonymous',
                         reporter_contact: formData.contact,
@@ -225,7 +230,7 @@ export default function LostFoundPage() {
             console.log("✅ Item created:", data.id);
             toast({
                 title: "Item reported successfully",
-                description: `Your ${type} item has been posted`,
+                description: `Your ${itemType} item has been posted`,
             });
 
             setFormData({
@@ -238,6 +243,7 @@ export default function LostFoundPage() {
             });
             setImageFile(null);
             setImagePreview("");
+            setIsDialogOpen(false);
             loadItems();
         } catch (error) {
             console.error("❌ Error creating item:", error);
@@ -390,351 +396,256 @@ export default function LostFoundPage() {
         }
     }
 
+    if (!currentUser) return null;
+
     return (
-        <div className="min-h-screen bg-background">
-            <Header />
-            <div className="flex pt-16 w-full">
-                <Sidebar />
-                <main className="flex-1 w-full p-3 sm:p-4 md:p-6 lg:ml-64 pb-24 sm:pb-20 lg:pb-0">
-                    <div className="max-w-4xl mx-auto space-y-6">
-                        <div className="flex items-center justify-between">
-                            <h1 className="text-3xl font-bold">Lost & Found</h1>
+        <div className="flex min-h-screen w-full bg-background">
+            <Sidebar />
+            <MobileNav />
+
+            <div className="lg:ml-64 flex-1 w-full">
+                <Header />
+
+                <main className="w-full p-3 sm:p-4 md:p-6 pb-24 sm:pb-20 lg:pb-6">
+                    <div className="max-w-7xl mx-auto space-y-6">
+                        {/* Header */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div>
+                                <h1 className="text-3xl font-bold mb-1">Lost & Found</h1>
+                                <p className="text-muted-foreground">Report and find lost items on campus</p>
+                            </div>
+
+                            {/* Dialog for new listing */}
+                            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="gap-2">
+                                        <Plus className="h-4 w-4" /> Report Item
+                                    </Button>
+                                </DialogTrigger>
+
+                                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                                    <DialogHeader>
+                                        <DialogTitle>Report Lost or Found Item</DialogTitle>
+                                        <DialogDescription>Add details about the item you lost or found.</DialogDescription>
+                                    </DialogHeader>
+
+                                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        <div>
+                                            <Label>Item Type *</Label>
+                                            <Select value={itemType} onValueChange={(v) => setItemType(v as 'lost' | 'found')}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="lost">Lost Item</SelectItem>
+                                                    <SelectItem value="found">Found Item</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div>
+                                            <Label>Title *</Label>
+                                            <Input
+                                                required
+                                                value={formData.title}
+                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                                placeholder="e.g., Black Wallet"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <Label>Description *</Label>
+                                            <Textarea
+                                                required
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                                placeholder="Describe the item in detail..."
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label>Category *</Label>
+                                                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {itemCategories.map(cat => (
+                                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div>
+                                                <Label>Location *</Label>
+                                                <Input
+                                                    required
+                                                    value={formData.location}
+                                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                                    placeholder="e.g., Library"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <Label>Date {itemType === 'lost' ? 'Lost' : 'Found'} *</Label>
+                                                <Input
+                                                    required
+                                                    type="date"
+                                                    value={formData.date}
+                                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <Label>Contact *</Label>
+                                                <Input
+                                                    required
+                                                    value={formData.contact}
+                                                    onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                                                    placeholder="Phone or Email"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <Label>Image (Optional)</Label>
+                                            <div className="mt-2">
+                                                {imagePreview ? (
+                                                    <div className="relative">
+                                                        <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            className="absolute top-2 right-2"
+                                                            onClick={() => {
+                                                                setImageFile(null);
+                                                                setImagePreview("");
+                                                            }}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent">
+                                                        <ImagePlus className="h-8 w-8 mb-2 text-muted-foreground" />
+                                                        <span className="text-sm text-muted-foreground">
+                                                            Click to upload image
+                                                        </span>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={handleImageSelect}
+                                                        />
+                                                    </label>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <Button type="submit" className="w-full" disabled={loading}>
+                                            {loading ? "Reporting..." : `Report ${itemType === 'lost' ? 'Lost' : 'Found'} Item`}
+                                        </Button>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </div>
 
-                        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'lost' | 'found')}>
-                            <TabsList className="grid w-full grid-cols-2">
+                        {/* Tabs */}
+                        <Tabs
+                            value={activeTab}
+                            onValueChange={(v) => setActiveTab(v as 'lost' | 'found')}
+                            className="w-full"
+                        >
+                            <TabsList>
                                 <TabsTrigger value="lost">Lost Items</TabsTrigger>
                                 <TabsTrigger value="found">Found Items</TabsTrigger>
                             </TabsList>
-
-                            <TabsContent value="lost" className="space-y-6">
-                                <Card className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Report Lost Item</h2>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <Label htmlFor="lost-title">Title *</Label>
-                                            <Input
-                                                id="lost-title"
-                                                placeholder="e.g., Black Wallet"
-                                                value={formData.title}
-                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="lost-description">Description *</Label>
-                                            <Textarea
-                                                id="lost-description"
-                                                placeholder="Describe the item in detail..."
-                                                value={formData.description}
-                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="lost-category">Category *</Label>
-                                                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                                                    <SelectTrigger id="lost-category">
-                                                        <SelectValue placeholder="Select category" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {itemCategories.map(cat => (
-                                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="lost-location">Location *</Label>
-                                                <Input
-                                                    id="lost-location"
-                                                    placeholder="e.g., Library"
-                                                    value={formData.location}
-                                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="lost-date">Date Lost *</Label>
-                                                <Input
-                                                    id="lost-date"
-                                                    type="date"
-                                                    value={formData.date}
-                                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="lost-contact">Contact *</Label>
-                                                <Input
-                                                    id="lost-contact"
-                                                    placeholder="Phone or Email"
-                                                    value={formData.contact}
-                                                    onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="lost-image">Image (Optional)</Label>
-                                            <div className="flex items-center gap-4">
-                                                <Input
-                                                    id="lost-image"
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleImageSelect}
-                                                    className="flex-1"
-                                                />
-                                                {imagePreview && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => {
-                                                            setImageFile(null);
-                                                            setImagePreview("");
-                                                        }}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                            {imagePreview && (
-                                                <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-32 object-cover rounded" />
-                                            )}
-                                        </div>
-                                        <Button onClick={() => handleSubmit('lost')} disabled={loading} className="w-full">
-                                            {loading ? "Reporting..." : "Report Lost Item"}
-                                        </Button>
-                                    </div>
-                                </Card>
-
-                                <div className="space-y-4">
-                                    <h2 className="text-xl font-semibold">Lost Items</h2>
-                                    {loadingItems ? (
-                                        <p>Loading...</p>
-                                    ) : filteredItems.length === 0 ? (
-                                        <p className="text-muted-foreground">No lost items reported</p>
-                                    ) : (
-                                        filteredItems.map((item) => (
-                                            <Card key={item.id} className="p-4">
-                                                <div className="flex gap-4">
-                                                    {item.imageUrl && (
-                                                        <img src={item.imageUrl} alt={item.title} className="h-24 w-24 object-cover rounded" />
-                                                    )}
-                                                    <div className="flex-1">
-                                                        <div className="flex items-start justify-between">
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <h3 className="font-semibold">{item.title}</h3>
-                                                                    <Badge variant="destructive">Lost</Badge>
-                                                                    <Badge variant="outline">{item.category}</Badge>
-                                                                </div>
-                                                                <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                                                            <div className="flex items-center gap-1">
-                                                                <MapPin className="h-4 w-4" />
-                                                                {item.location}
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar className="h-4 w-4" />
-                                                                {item.date && formatDistanceToNow(item.date.toDate(), { addSuffix: true })}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2 mt-3">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleContactClick(item)}
-                                                            >
-                                                                <MessageCircle className="h-4 w-4 mr-1" />
-                                                                Contact
-                                                            </Button>
-                                                            {currentUser?.uid === item.reporterId && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => handleMarkResolved(item.id!)}
-                                                                >
-                                                                    <Check className="h-4 w-4 mr-1" />
-                                                                    Mark as Resolved
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </Card>
-                                        ))
-                                    )}
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="found" className="space-y-6">
-                                <Card className="p-6">
-                                    <h2 className="text-xl font-semibold mb-4">Report Found Item</h2>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <Label htmlFor="found-title">Title *</Label>
-                                            <Input
-                                                id="found-title"
-                                                placeholder="e.g., Black Wallet"
-                                                value={formData.title}
-                                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                            />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="found-description">Description *</Label>
-                                            <Textarea
-                                                id="found-description"
-                                                placeholder="Describe the item in detail..."
-                                                value={formData.description}
-                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="found-category">Category *</Label>
-                                                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                                                    <SelectTrigger id="found-category">
-                                                        <SelectValue placeholder="Select category" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {itemCategories.map(cat => (
-                                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="found-location">Location *</Label>
-                                                <Input
-                                                    id="found-location"
-                                                    placeholder="e.g., Library"
-                                                    value={formData.location}
-                                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <Label htmlFor="found-date">Date Found *</Label>
-                                                <Input
-                                                    id="found-date"
-                                                    type="date"
-                                                    value={formData.date}
-                                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                                />
-                                            </div>
-                                            <div>
-                                                <Label htmlFor="found-contact">Contact *</Label>
-                                                <Input
-                                                    id="found-contact"
-                                                    placeholder="Phone or Email"
-                                                    value={formData.contact}
-                                                    onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="found-image">Image (Optional)</Label>
-                                            <div className="flex items-center gap-4">
-                                                <Input
-                                                    id="found-image"
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={handleImageSelect}
-                                                    className="flex-1"
-                                                />
-                                                {imagePreview && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => {
-                                                            setImageFile(null);
-                                                            setImagePreview("");
-                                                        }}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                            {imagePreview && (
-                                                <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-32 object-cover rounded" />
-                                            )}
-                                        </div>
-                                        <Button onClick={() => handleSubmit('found')} disabled={loading} className="w-full">
-                                            {loading ? "Reporting..." : "Report Found Item"}
-                                        </Button>
-                                    </div>
-                                </Card>
-
-                                <div className="space-y-4">
-                                    <h2 className="text-xl font-semibold">Found Items</h2>
-                                    {loadingItems ? (
-                                        <p>Loading...</p>
-                                    ) : filteredItems.length === 0 ? (
-                                        <p className="text-muted-foreground">No found items reported</p>
-                                    ) : (
-                                        filteredItems.map((item) => (
-                                            <Card key={item.id} className="p-4">
-                                                <div className="flex gap-4">
-                                                    {item.imageUrl && (
-                                                        <img src={item.imageUrl} alt={item.title} className="h-24 w-24 object-cover rounded" />
-                                                    )}
-                                                    <div className="flex-1">
-                                                        <div className="flex items-start justify-between">
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <h3 className="font-semibold">{item.title}</h3>
-                                                                    <Badge className="bg-green-500">Found</Badge>
-                                                                    <Badge variant="outline">{item.category}</Badge>
-                                                                </div>
-                                                                <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                                                            <div className="flex items-center gap-1">
-                                                                <MapPin className="h-4 w-4" />
-                                                                {item.location}
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar className="h-4 w-4" />
-                                                                {item.date && formatDistanceToNow(item.date.toDate(), { addSuffix: true })}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-2 mt-3">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleContactClick(item)}
-                                                            >
-                                                                <MessageCircle className="h-4 w-4 mr-1" />
-                                                                Contact
-                                                            </Button>
-                                                            {currentUser?.uid === item.reporterId && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => handleMarkResolved(item.id!)}
-                                                                >
-                                                                    <Check className="h-4 w-4 mr-1" />
-                                                                    Mark as Resolved
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </Card>
-                                        ))
-                                    )}
-                                </div>
-                            </TabsContent>
                         </Tabs>
+
+                        {/* Items Grid */}
+                        {loadingItems ? (
+                            <div className="text-center py-12 text-muted-foreground">Loading items...</div>
+                        ) : filteredItems.length === 0 ? (
+                            <div className="text-center py-12 text-muted-foreground">
+                                No {activeTab} items reported yet
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredItems.map((item) => (
+                                    <Card key={item.id} className="overflow-hidden">
+                                        <div className="aspect-square bg-muted overflow-hidden">
+                                            {item.imageUrl ? (
+                                                <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="p-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Badge variant={item.type === 'lost' ? 'destructive' : 'default'} className={item.type === 'found' ? 'bg-green-500' : ''}>
+                                                    {item.type === 'lost' ? 'Lost' : 'Found'}
+                                                </Badge>
+                                                <Badge variant="outline">{item.category}</Badge>
+                                            </div>
+                                            <h3 className="font-bold text-lg">{item.title}</h3>
+                                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                                {item.description}
+                                            </p>
+                                            
+                                            <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                                <MapPin className="h-3 w-3" />
+                                                <span>{item.location}</span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                <Calendar className="h-3 w-3" />
+                                                <span>{item.date && formatDistanceToNow(item.date.toDate(), { addSuffix: true })}</span>
+                                            </div>
+
+                                            <p className="text-xs text-muted-foreground mt-2">Reported by: {item.reporterName}</p>
+
+                                            <div className="flex gap-2 mt-3">
+                                                {currentUser?.uid === item.reporterId ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1"
+                                                        onClick={() => handleMarkResolved(item.id!)}
+                                                    >
+                                                        <Check className="h-4 w-4 mr-2" /> Resolved
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        className="flex-1"
+                                                        onClick={() => handleContactClick(item)}
+                                                    >
+                                                        <MessageCircle className="h-4 w-4 mr-2" /> Contact
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Contact Reporter Dialog */}
                         <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle>Contact {selectedItemForContact?.reporterName}</DialogTitle>
+                                    <DialogDescription>
+                                        Choose how you'd like to contact about "{selectedItemForContact?.title}"
+                                    </DialogDescription>
                                 </DialogHeader>
 
                                 <div className="space-y-3">
@@ -763,7 +674,6 @@ export default function LostFoundPage() {
                     </div>
                 </main>
             </div>
-            <MobileNav />
         </div>
     );
 }
