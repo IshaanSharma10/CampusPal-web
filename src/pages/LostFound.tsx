@@ -607,7 +607,7 @@ export default function LostFoundPage() {
                                             
                                             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                                 <Calendar className="h-3 w-3" />
-                                                <span>{item.date && formatDistanceToNow(item.date.toDate(), { addSuffix: true })}</span>
+                                                <span>{item.createdAt && formatDistanceToNow(item.createdAt.toDate(), { addSuffix: true })}</span>
                                             </div>
 
                                             <p className="text-xs text-muted-foreground mt-2">Reported by: {item.reporterName}</p>
