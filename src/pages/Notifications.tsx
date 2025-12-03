@@ -34,6 +34,14 @@ import { toast } from "sonner";
 import { formatDistanceToNow, isToday, isYesterday, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Notification types with visual styling
 const notificationTypes = {
