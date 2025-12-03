@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
-import { createLostFoundItem, getLostFoundItems, uploadImage, LostFound, markLostFoundResolved, addComment, getComments, deleteComment, Comment, createDirectChat, sendMessage } from "@/lib/firebase-utils";
+import { LostFound, addComment, getComments, deleteComment, Comment, createDirectChat, sendMessage } from "@/lib/firebase-utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/SupabaseConfig";
 import { Image as ImageIcon, MapPin, Calendar, Phone, Check, X, MessageCircle, Send, MoreVertical, Trash2, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -38,6 +39,33 @@ const itemCategories = [
     { value: 'documents', label: 'Documents' },
     { value: 'other', label: 'Other' },
 ];
+
+// ✅ Supabase upload utility
+async function uploadImageToSupabase(file: File, folder: string): Promise<string> {
+    const safeFileName = file.name.replace(/[^\w.-]/g, "_");
+    const filePath = `${folder}/${Date.now()}_${safeFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from("lost_items") // ⚡ your public bucket
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error("❌ Storage upload error:", {
+            message: uploadError.message,
+            statusCode: uploadError.statusCode,
+            error: uploadError.error
+        });
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage
+        .from("lost_items")
+        .getPublicUrl(filePath);
+
+    if (!data?.publicUrl) throw new Error("Failed to get public URL");
+
+    return data.publicUrl;
+}
 
 export default function LostFoundPage() {
     const { currentUser, userProfile } = useAuth();
@@ -76,16 +104,59 @@ export default function LostFoundPage() {
     const loadItems = async () => {
         setLoadingItems(true);
         try {
-            const fetchedItems = await getLostFoundItems();
-            setItems(fetchedItems || []);
-            console.log("✅ Loaded lost and found items:", fetchedItems?.length || 0);
-        } catch (error) {
+            const { data, error } = await supabase
+                .from("lost_found")
+                .select("*")
+                .eq("resolved", false)
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("❌ Supabase error details:", {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code
+                });
+                throw error;
+            }
+
+            // Map Supabase data to LostFound interface
+            const mappedItems: LostFound[] = (data || []).map((item: any) => ({
+                id: item.id,
+                title: item.title,
+                description: item.description,
+                category: item.category,
+                location: item.location,
+                date: item.date ? { toDate: () => new Date(item.date) } : null,
+                type: item.type,
+                reporterId: item.reporter_id,
+                reporterName: item.reporter_name,
+                reporterContact: item.reporter_contact,
+                imageUrl: item.image_url,
+                resolved: item.resolved,
+                createdAt: item.created_at ? { toDate: () => new Date(item.created_at) } : null,
+            }));
+
+            setItems(mappedItems);
+            console.log("✅ Loaded lost and found items:", mappedItems?.length || 0);
+        } catch (error: any) {
             console.error("❌ Error loading items:", error);
-            toast({
-                title: "Error loading items",
-                description: error instanceof Error ? error.message : "Failed to fetch lost and found items",
-                variant: "destructive",
-            });
+            const errorMessage = error?.message || error?.details || "Failed to fetch lost and found items";
+            
+            // Check if it's a table not found error
+            if (error?.code === "PGRST116" || error?.message?.includes("does not exist") || error?.message?.includes("404")) {
+                toast({
+                    title: "Table not found",
+                    description: "The 'lost_found' table doesn't exist in Supabase. Please create it first.",
+                    variant: "destructive",
+                });
+            } else {
+                toast({
+                    title: "Error loading items",
+                    description: errorMessage,
+                    variant: "destructive",
+                });
+            }
             setItems([]);
         } finally {
             setLoadingItems(false);
@@ -118,23 +189,40 @@ export default function LostFoundPage() {
         try {
             let imageUrl: string | undefined = undefined;
             if (imageFile) {
-                imageUrl = await uploadImage(imageFile, 'lostfound');
+                imageUrl = await uploadImageToSupabase(imageFile, 'lostfound');
             }
 
-            const result = await createLostFoundItem({
-                title: formData.title,
-                description: formData.description,
-                category: formData.category,
-                location: formData.location,
-                date: new Date(formData.date) as any,
-                type,
-                reporterId: currentUser!.uid,
-                reporterName: userProfile?.displayName || 'Anonymous',
-                reporterContact: formData.contact,
-                imageUrl,
-            });
+            const { data, error } = await supabase
+                .from("lost_found")
+                .insert([
+                    {
+                        title: formData.title,
+                        description: formData.description,
+                        category: formData.category,
+                        location: formData.location,
+                        date: formData.date,
+                        type,
+                        reporter_id: currentUser!.uid,
+                        reporter_name: userProfile?.displayName || 'Anonymous',
+                        reporter_contact: formData.contact,
+                        image_url: imageUrl,
+                        resolved: false,
+                    },
+                ])
+                .select()
+                .single();
 
-            console.log("✅ Item created:", result.id);
+            if (error) {
+                console.error("❌ Supabase insert error:", {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code
+                });
+                throw error;
+            }
+
+            console.log("✅ Item created:", data.id);
             toast({
                 title: "Item reported successfully",
                 description: `Your ${type} item has been posted`,
@@ -165,12 +253,19 @@ export default function LostFoundPage() {
 
     const handleMarkResolved = async (itemId: string) => {
         try {
-            await markLostFoundResolved(itemId);
+            const { error } = await supabase
+                .from("lost_found")
+                .update({ resolved: true })
+                .eq("id", itemId);
+
+            if (error) throw error;
+
             toast({
                 title: "Item marked as resolved",
             });
             loadItems();
         } catch (error) {
+            console.error("Error marking item as resolved:", error);
             toast({
                 title: "Error",
                 description: "Failed to mark item as resolved",
@@ -244,7 +339,7 @@ export default function LostFoundPage() {
         }
     };
 
-    const filteredItems = items.filter(item => item.type === activeTab);
+    const filteredItems = items.filter(item => item.type === activeTab && !item.resolved);
 
     // 🔹 Contact reporter - show options dialog
     function handleContactClick(item: LostFound) {
